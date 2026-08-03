@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demiurge — A God Simulator of Suns & Life</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header id="hud">
+  <div class="brand">
+    <span class="logo">✶</span>
+    <div>
+      <h1>DEMIURGE</h1>
+      <p>play god · sculpt star systems · evolve life</p>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><label>Era</label><span id="stat-era" class="era">—</span></div>
+    <div class="stat"><label>Surface</label><span id="stat-temp">—</span></div>
+    <div class="stat"><label>Population</label><span id="stat-pop">—</span></div>
+    <div class="stat"><label>Generation</label><span id="stat-gen">—</span></div>
+    <div class="stat"><label>Suns</label><span id="stat-suns">—</span></div>
+    <div class="stat"><label>Orbit time</label><span id="stat-time">—</span></div>
+    <div class="stat" title="Energy conservation of the integrator — near zero means physically faithful orbits">
+      <label>Energy drift</label><span id="stat-energy">—</span></div>
+  </div>
+</header>
+
+<main>
+  <section id="cosmos-wrap">
+    <canvas id="cosmos"></canvas>
+    <div id="cosmos-hint" class="hint">Click a star to select · drag on empty space to launch a new body</div>
+  </section>
+
+  <aside id="panel">
+    <div class="views">
+      <canvas id="surface" title="The planet's biosphere. Dots are organisms coloured by their preferred temperature; dashed = dormant/dehydrated."></canvas>
+      <canvas id="graphs" title="Top: surface temperature (orange) vs the population's evolving preferred temperature (blue), green band = habitable. Bottom: population & dormant count."></canvas>
+    </div>
+
+    <div class="controls">
+
+      <div class="group">
+        <div class="group-head">Simulation</div>
+        <div class="row">
+          <button id="btn-play" class="primary">⏸ Pause</button>
+          <button id="btn-reset">↺ Reset</button>
+        </div>
+        <label class="slider">Speed <output id="out-speed">3×</output>
+          <input id="in-speed" type="range" min="0" max="12" step="1" value="3" />
+        </label>
+      </div>
+
+      <div class="group">
+        <div class="group-head">Star Systems</div>
+        <div id="presets" class="presets"></div>
+        <p id="preset-blurb" class="blurb"></p>
+      </div>
+
+      <div class="group">
+        <div class="group-head">Create Bodies <span class="hint-inline">drag on the cosmos to launch</span></div>
+        <div class="row seg" id="body-type">
+          <button data-type="sun" class="active">☀ Sun</button>
+          <button data-type="rogue">🪐 Rogue</button>
+        </div>
+        <label class="slider">Mass <output id="out-mass">1.00</output>
+          <input id="in-mass" type="range" min="0.1" max="3" step="0.05" value="1" />
+        </label>
+        <div class="row">
+          <button id="btn-add-center">＋ Add at rest</button>
+        </div>
+      </div>
+
+      <div class="group hidden" id="sel-group">
+        <div class="group-head">Selected Body</div>
+        <div id="sel-info" class="sel-info"></div>
+        <label class="slider">Mass <output id="out-selmass"></output>
+          <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
+        </label>
+        <div class="row">
+          <button id="btn-del" class="danger">✕ Extinguish</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head">God of Evolution</div>
+        <div class="row">
+          <button id="btn-seed" class="primary">🌱 Seed Life</button>
+          <button id="btn-burst" title="Inject a burst of genetic variation">✦ Cambrian Burst</button>
+        </div>
+        <label class="slider">Mutation rate <output id="out-mut">6%</output>
+          <input id="in-mut" type="range" min="0" max="20" step="0.5" value="6" />
+        </label>
+        <label class="slider">Evolution speed <output id="out-evo">1.0×</output>
+          <input id="in-evo" type="range" min="0.2" max="3" step="0.1" value="1" />
+        </label>
+
+        <div class="nudges">
+          <span class="nudge-label">Preferred temp</span>
+          <div class="row">
+            <button data-trait="optimalTemp" data-delta="-6">❄ Cooler</button>
+            <button data-trait="optimalTemp" data-delta="6">🔥 Warmer</button>
+          </div>
+          <span class="nudge-label">Temp tolerance</span>
+          <div class="row">
+            <button data-trait="tolerance" data-delta="-8">– Narrower</button>
+            <button data-trait="tolerance" data-delta="8">+ Broader</button>
+          </div>
+          <span class="nudge-label">Dormancy (dehydration)</span>
+          <div class="row">
+            <button data-trait="dormancy" data-delta="-0.2">– Suppress</button>
+            <button data-trait="dormancy" data-delta="0.2">+ Grant</button>
+          </div>
+          <span class="nudge-label">Body size</span>
+          <div class="row">
+            <button data-trait="size" data-delta="-0.4">– Smaller</button>
+            <button data-trait="size" data-delta="0.4">+ Bigger</button>
+          </div>
+          <span class="nudge-label">Metabolism</span>
+          <div class="row">
+            <button data-trait="metabolism" data-delta="-0.3">– Slower</button>
+            <button data-trait="metabolism" data-delta="0.3">+ Faster</button>
+          </div>
+        </div>
+
+        <label class="slider">Cataclysm severity <output id="out-cata">60%</output>
+          <input id="in-cata" type="range" min="10" max="99" step="1" value="60" />
+        </label>
+        <div class="row">
+          <button id="btn-extinct" class="danger">☄ Trigger Cataclysm</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head">Biosphere Readout</div>
+        <div id="readout" class="readout"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-head">Chronicle</div>
+        <ul id="log" class="log"></ul>
+      </div>
+
+    </div>
+  </aside>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/climate.js"></script>
+<script src="js/evolution.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/world.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
