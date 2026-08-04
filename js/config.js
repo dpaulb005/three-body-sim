@@ -76,15 +76,16 @@ const CONFIG = {
     memoryCap: 3.0,
     maxProtection: 0.45,   // tech blunts the suns but never conquers them
     // Named ages unlocked as cumulative knowledge crosses each threshold.
+    // `short` is used by the compact age stepper in the inspector.
     tiers: [
-      { k: 0,    name: 'Stone Age',    icon: '🪨' },
-      { k: 120,  name: 'Fire & Tribe', icon: '🔥' },
-      { k: 320,  name: 'Agriculture',  icon: '🌾' },
-      { k: 640,  name: 'Writing',      icon: '📜' },
-      { k: 1100, name: 'Industry',     icon: '⚙️' },
-      { k: 1800, name: 'Science',      icon: '🔬' },
-      { k: 2800, name: 'Spaceflight',  icon: '🚀' },
-      { k: 4200, name: 'Transcendence', icon: '🌌' }, // pinnacle
+      { k: 0,    name: 'Stone Age',     short: 'Stone' },
+      { k: 120,  name: 'Fire & Tribe',  short: 'Fire' },
+      { k: 320,  name: 'Agriculture',   short: 'Farm' },
+      { k: 640,  name: 'Writing',       short: 'Write' },
+      { k: 1100, name: 'Industry',      short: 'Steam' },
+      { k: 1800, name: 'Science',       short: 'Science' },
+      { k: 2800, name: 'Spaceflight',   short: 'Space' },
+      { k: 4200, name: 'Transcendence', short: 'Beyond' }, // pinnacle
     ],
   },
 };

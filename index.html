@@ -3,165 +3,231 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Demiurge — A God Simulator of Suns & Life</title>
+<title>Demiurge</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-<header id="hud">
-  <div class="brand">
-    <span class="logo">✶</span>
-    <div>
-      <h1>DEMIURGE</h1>
-      <p>play god · sculpt star systems · evolve life</p>
+
+<!-- ────────────────  Top bar  ──────────────── -->
+<header id="topbar">
+  <div class="wordmark">Demiurge</div>
+
+  <div class="metrics">
+    <div class="metric wide">
+      <span class="m-label">Era</span>
+      <span class="m-value" id="stat-era">—</span>
     </div>
-  </div>
-  <div class="stats">
-    <div class="stat"><label>Era</label><span id="stat-era" class="era">—</span></div>
-    <div class="stat"><label>Surface</label><span id="stat-temp">—</span></div>
-    <div class="stat"><label>Population</label><span id="stat-pop">—</span></div>
-    <div class="stat" title="Average intelligence of the population. Big brains are expensive — they only evolve where the world is rich and calm enough to pay for them."><label>Intelligence</label><span id="stat-intel">—</span></div>
-    <div class="stat" title="The civilisation's current age. Collapses knock it back down."><label>Age</label><span id="stat-age">—</span></div>
-    <div class="stat" title="Dark Ages suffered — each rebuild goes faster"><label>Collapses</label><span id="stat-collapse">—</span></div>
-    <div class="stat"><label>Suns</label><span id="stat-suns">—</span></div>
-    <div class="stat"><label>Orbit time</label><span id="stat-time">—</span></div>
-    <div class="stat" title="Energy conservation of the integrator — near zero means physically faithful orbits">
-      <label>Energy drift</label><span id="stat-energy">—</span></div>
+    <div class="metric">
+      <span class="m-label">Surface</span>
+      <span class="m-value" id="stat-temp">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Population</span>
+      <span class="m-value" id="stat-pop">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Intelligence</span>
+      <span class="m-value" id="stat-intel">—</span>
+    </div>
+    <div class="metric wide">
+      <span class="m-label">Civilization</span>
+      <span class="m-value" id="stat-age">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Collapses</span>
+      <span class="m-value" id="stat-collapse">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Suns</span>
+      <span class="m-value" id="stat-suns">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Orbits</span>
+      <span class="m-value" id="stat-time">—</span>
+    </div>
+    <div class="metric" title="Energy conservation of the integrator. Near zero means the orbits are physically faithful.">
+      <span class="m-label">Drift</span>
+      <span class="m-value" id="stat-energy">—</span>
+    </div>
   </div>
 </header>
 
 <main>
-  <section id="cosmos-wrap">
+  <!-- ────────────────  Cosmos  ──────────────── -->
+  <section id="stage">
     <canvas id="cosmos"></canvas>
-    <div id="cosmos-hint" class="hint">Click a star to select · drag on empty space to launch a new body</div>
-  </section>
 
-  <aside id="panel">
-    <div class="views">
-      <canvas id="surface" title="The planet's biosphere. Dots are organisms coloured by their preferred temperature; dashed = dormant/dehydrated."></canvas>
-      <canvas id="graphs" title="Top: surface temperature (orange) vs the population's evolving preferred temperature (blue), green band = habitable. Bottom: population & dormant count."></canvas>
+    <div id="transport">
+      <button id="btn-play" class="t-btn" aria-label="Play or pause">
+        <svg viewBox="0 0 16 16" class="ic-pause"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>
+        <svg viewBox="0 0 16 16" class="ic-play"><path d="M5 3.5v9l8-4.5z"/></svg>
+      </button>
+      <div class="t-sep"></div>
+      <input id="in-speed" class="t-speed" type="range" min="0" max="12" step="1" value="3" aria-label="Speed" />
+      <output id="out-speed" class="t-read">3×</output>
+      <div class="t-sep"></div>
+      <button id="btn-reset" class="t-btn" aria-label="Reset">
+        <svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.6 3.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12.8 2.4v3.2H9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
 
-    <div class="controls">
+    <p id="stage-hint">Click a star to select · drag empty space to launch a body</p>
+  </section>
 
-      <div class="group">
-        <div class="group-head">Simulation</div>
-        <div class="row">
-          <button id="btn-play" class="primary">⏸ Pause</button>
-          <button id="btn-reset">↺ Reset</button>
+  <!-- ────────────────  Inspector  ──────────────── -->
+  <aside id="inspector">
+
+    <div class="view-stack">
+      <canvas id="surface" title="The planet's surface. Each dot is an organism, coloured by the temperature it prefers. Dashed = dormant, halo = intelligent."></canvas>
+      <canvas id="graphs" title="Climate, population and knowledge over time."></canvas>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="cosmos" class="active">Cosmos</button>
+      <button data-tab="life">Life</button>
+      <button data-tab="civ">Civilization</button>
+      <button data-tab="log">Chronicle</button>
+    </nav>
+
+    <div class="tab-body">
+
+      <!-- ───── Cosmos ───── -->
+      <section class="pane active" data-pane="cosmos">
+        <div class="block">
+          <h3>Star system</h3>
+          <div id="presets" class="list"></div>
+          <p id="preset-blurb" class="note"></p>
         </div>
-        <label class="slider">Speed <output id="out-speed">3×</output>
-          <input id="in-speed" type="range" min="0" max="12" step="1" value="3" />
-        </label>
-      </div>
 
-      <div class="group">
-        <div class="group-head">Star Systems</div>
-        <div id="presets" class="presets"></div>
-        <p id="preset-blurb" class="blurb"></p>
-      </div>
-
-      <div class="group">
-        <div class="group-head">Create Bodies <span class="hint-inline">drag on the cosmos to launch</span></div>
-        <div class="row seg" id="body-type">
-          <button data-type="sun" class="active">☀ Sun</button>
-          <button data-type="rogue">🪐 Rogue</button>
+        <div class="block">
+          <h3>Add a body</h3>
+          <div class="segmented" id="body-type">
+            <button data-type="sun" class="active">Sun</button>
+            <button data-type="rogue">Rogue</button>
+          </div>
+          <div class="field">
+            <label for="in-mass">Mass</label>
+            <output id="out-mass">1.00</output>
+            <input id="in-mass" type="range" min="0.1" max="3" step="0.05" value="1" />
+          </div>
+          <button id="btn-add-center" class="btn">Place at rest</button>
+          <p class="note">Or drag anywhere on the cosmos to launch one with velocity.</p>
         </div>
-        <label class="slider">Mass <output id="out-mass">1.00</output>
-          <input id="in-mass" type="range" min="0.1" max="3" step="0.05" value="1" />
-        </label>
-        <div class="row">
-          <button id="btn-add-center">＋ Add at rest</button>
-        </div>
-      </div>
 
-      <div class="group hidden" id="sel-group">
-        <div class="group-head">Selected Body</div>
-        <div id="sel-info" class="sel-info"></div>
-        <label class="slider">Mass <output id="out-selmass"></output>
-          <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
-        </label>
-        <div class="row">
-          <button id="btn-del" class="danger">✕ Extinguish</button>
+        <div class="block hidden" id="sel-group">
+          <h3>Selected</h3>
+          <div id="sel-info" class="sel-info"></div>
+          <div class="field">
+            <label for="in-selmass">Mass</label>
+            <output id="out-selmass"></output>
+            <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
+          </div>
+          <button id="btn-del" class="btn danger">Extinguish</button>
         </div>
-      </div>
+      </section>
 
-      <div class="group">
-        <div class="group-head">God of Evolution</div>
-        <div class="row">
-          <button id="btn-seed" class="primary">🌱 Seed Life</button>
-          <button id="btn-burst" title="Inject a burst of genetic variation">✦ Cambrian Burst</button>
+      <!-- ───── Life ───── -->
+      <section class="pane" data-pane="life">
+        <div class="block">
+          <h3>Biosphere</h3>
+          <div id="readout" class="readout"></div>
         </div>
-        <label class="slider">Mutation rate <output id="out-mut">6%</output>
-          <input id="in-mut" type="range" min="0" max="20" step="0.5" value="6" />
-        </label>
-        <label class="slider">Evolution speed <output id="out-evo">1.0×</output>
-          <input id="in-evo" type="range" min="0.2" max="3" step="0.1" value="1" />
-        </label>
 
-        <div class="nudges">
-          <span class="nudge-label">Preferred temp</span>
-          <div class="row">
-            <button data-trait="optimalTemp" data-delta="-6">❄ Cooler</button>
-            <button data-trait="optimalTemp" data-delta="6">🔥 Warmer</button>
+        <div class="block">
+          <h3>Controls</h3>
+          <div class="btn-row">
+            <button id="btn-seed" class="btn primary">Seed life</button>
+            <button id="btn-burst" class="btn">Cambrian burst</button>
           </div>
-          <span class="nudge-label">Temp tolerance</span>
-          <div class="row">
-            <button data-trait="tolerance" data-delta="-8">– Narrower</button>
-            <button data-trait="tolerance" data-delta="8">+ Broader</button>
+          <div class="field">
+            <label for="in-mut">Mutation rate</label>
+            <output id="out-mut">6.0%</output>
+            <input id="in-mut" type="range" min="0" max="20" step="0.5" value="6" />
           </div>
-          <span class="nudge-label">Dormancy (dehydration)</span>
-          <div class="row">
-            <button data-trait="dormancy" data-delta="-0.2">– Suppress</button>
-            <button data-trait="dormancy" data-delta="0.2">+ Grant</button>
-          </div>
-          <span class="nudge-label">Body size</span>
-          <div class="row">
-            <button data-trait="size" data-delta="-0.4">– Smaller</button>
-            <button data-trait="size" data-delta="0.4">+ Bigger</button>
-          </div>
-          <span class="nudge-label">Metabolism</span>
-          <div class="row">
-            <button data-trait="metabolism" data-delta="-0.3">– Slower</button>
-            <button data-trait="metabolism" data-delta="0.3">+ Faster</button>
-          </div>
-          <span class="nudge-label">Intelligence <em>(expensive!)</em></span>
-          <div class="row">
-            <button data-trait="intelligence" data-delta="-0.15">– Dull</button>
-            <button data-trait="intelligence" data-delta="0.15">🧠 Uplift</button>
+          <div class="field">
+            <label for="in-evo">Evolution speed</label>
+            <output id="out-evo">1.0×</output>
+            <input id="in-evo" type="range" min="0.2" max="3" step="0.1" value="1" />
           </div>
         </div>
 
-        <label class="slider">Cataclysm severity <output id="out-cata">60%</output>
-          <input id="in-cata" type="range" min="10" max="99" step="1" value="60" />
-        </label>
-        <div class="row">
-          <button id="btn-extinct" class="danger">☄ Trigger Cataclysm</button>
+        <div class="block">
+          <h3>Divine edicts</h3>
+          <div class="nudges">
+            <div class="nudge"><span>Intelligence</span>
+              <div class="pair">
+                <button data-trait="intelligence" data-delta="-0.15">Dull</button>
+                <button data-trait="intelligence" data-delta="0.15">Uplift</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Preferred temp</span>
+              <div class="pair">
+                <button data-trait="optimalTemp" data-delta="-6">Cooler</button>
+                <button data-trait="optimalTemp" data-delta="6">Warmer</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Tolerance</span>
+              <div class="pair">
+                <button data-trait="tolerance" data-delta="-8">Narrow</button>
+                <button data-trait="tolerance" data-delta="8">Broad</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Dormancy</span>
+              <div class="pair">
+                <button data-trait="dormancy" data-delta="-0.2">Suppress</button>
+                <button data-trait="dormancy" data-delta="0.2">Grant</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Size</span>
+              <div class="pair">
+                <button data-trait="size" data-delta="-0.4">Smaller</button>
+                <button data-trait="size" data-delta="0.4">Bigger</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Metabolism</span>
+              <div class="pair">
+                <button data-trait="metabolism" data-delta="-0.3">Slower</button>
+                <button data-trait="metabolism" data-delta="0.3">Faster</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="group">
-        <div class="group-head">Civilization</div>
-        <div id="civ-body">
+        <div class="block">
+          <h3>Cataclysm</h3>
+          <div class="field">
+            <label for="in-cata">Severity</label>
+            <output id="out-cata">60%</output>
+            <input id="in-cata" type="range" min="10" max="99" step="1" value="60" />
+          </div>
+          <button id="btn-extinct" class="btn danger">Trigger extinction event</button>
+        </div>
+      </section>
+
+      <!-- ───── Civilization ───── -->
+      <section class="pane" data-pane="civ">
+        <div class="block">
           <div id="civ-status" class="civ-status"></div>
-          <div class="civ-track" id="civ-track"></div>
+          <div class="civ-steps" id="civ-track"></div>
           <div class="civ-prog"><i id="civ-prog-fill"></i></div>
+        </div>
+        <div class="block">
+          <h3>Record</h3>
           <div id="civ-facts" class="readout"></div>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-gift" title="Grant a leap of insight">💡 Gift Insight</button>
-            <button id="btn-burn" class="danger" title="Destroy most of their accumulated knowledge">🔥 Burn Library</button>
+        </div>
+        <div class="block">
+          <h3>Intervene</h3>
+          <div class="btn-row">
+            <button id="btn-gift" class="btn">Gift insight</button>
+            <button id="btn-burn" class="btn danger">Burn libraries</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="group">
-        <div class="group-head">Biosphere Readout</div>
-        <div id="readout" class="readout"></div>
-      </div>
-
-      <div class="group">
-        <div class="group-head">Chronicle</div>
+      <!-- ───── Chronicle ───── -->
+      <section class="pane" data-pane="log">
         <ul id="log" class="log"></ul>
-      </div>
+      </section>
 
     </div>
   </aside>
