@@ -1,10 +1,17 @@
-# DEMIURGE — a god-simulator of suns & life
+# DEMIURGE — a god-simulator of suns, life & civilizations
 
-Play god over a solar system and the life that clings to one of its worlds.
-Add suns, sculpt a chaotic multi-star sky like the one in Cixin Liu's
-*The Three-Body Problem*, and watch an evolving biosphere either flourish in a
-long **Stable Era** or fight to survive the freezing and scorching **Chaotic
-Eras** the wandering suns inflict on it.
+**The premise: Earth is a freakish stroke of luck.** We evolved on a quiet
+world with one well-behaved star, in a stable Goldilocks orbit, with nothing to
+do but get clever. This is the experiment that asks what happens *everywhere
+else* — in the violent multi-sun skies of Cixin Liu's *The Three-Body Problem*,
+where a civilization is repeatedly smashed back into the stone age before it can
+ever look up and understand its own sky.
+
+Play god over a solar system. Add suns, sculpt the chaos, and watch life either
+flourish in a long **Stable Era** or fight to survive the freezing and scorching
+**Chaotic Eras** the wandering suns inflict on it. If a species is lucky enough
+to grow a brain it can afford, it **awakens** — and then you watch its
+civilization climb, collapse into dark ages, and climb again.
 
 It is a single self-contained web app — **no build step, no dependencies, no
 server required.** Just open `index.html`.
@@ -37,7 +44,9 @@ Runs in any modern browser (Chrome, Firefox, Safari, Edge).
 - Nudge the whole population's genome — make them prefer warmer or cooler
   climates, broaden their tolerance, grant them **dormancy** (the ability to
   dehydrate and wait out a Chaotic Era, exactly like the Trisolarans), change
-  body size or metabolism.
+  body size or metabolism, or **uplift their intelligence** directly.
+- Once they awaken, **gift them insight** to leap an age ahead — or **burn their
+  libraries** and watch centuries of progress turn to ash.
 - Dial mutation rate and evolution speed, trigger a **Cambrian Burst** of fresh
   variation, or unleash a **Cataclysm** mass-extinction and see who recovers.
 
@@ -100,6 +109,59 @@ handful of **dormant** survivors during a scorching era, then explode back to
 hundreds when calm returns — each cycle enriching the gene pool for dormancy and
 tolerance. That boom-and-bust ratchet *is* the story of Trisolaran life.
 
+### Intelligence — the expensive gamble that Earth got to make
+
+Intelligence is a heritable trait like any other, but it is **costly**: a big
+brain adds a permanent metabolic upkeep and a reproductive tax (long
+childhoods). Its only payoff is a foraging bonus that **scales with how
+productive the world is**. The consequence falls straight out of the model:
+
+- On a **rich, calm world**, a clever forager banks a large energy surplus,
+  and surplus buys breeding opportunities — so intelligence pays for itself and
+  climbs. This is us.
+- On a **harsh or chaotic world**, there is no surplus to harvest. The brain is
+  pure overhead, selection strips it away, and the species stays an animal
+  forever — too busy surviving to ever get clever.
+
+Once average intelligence and population cross a threshold *during a Stable
+Era*, the species **awakens** and the second stage begins.
+
+### Civilizations — the ratchet of knowledge and collapse
+
+An awakened civilization accumulates **knowledge**, passing through named ages:
+
+> 🪨 Stone Age → 🔥 Fire & Tribe → 🌾 Agriculture → 📜 Writing → ⚙️ Industry
+> → 🔬 Science → 🚀 Spaceflight → 🌌 Transcendence
+
+Technology progressively **shields the population from the climate** — an
+industrial civilization survives a scorching era that would annihilate a
+neolithic one. So it becomes a race: can they advance fast enough to outrun
+their own sky?
+
+Usually not. A severe enough Chaotic Era **shatters the civilization into a Dark
+Age**, destroying ~90% of its knowledge. Each rebuild goes faster (cultural
+memory), so the chronicle reads exactly like Trisolaris: *civilization #1 fell at
+Agriculture, #2 fell at Writing, #3 reached Industry…* If hardship grinds on long
+enough, selection breeds the expensive brains back out entirely and the
+survivors become beasts again. And very rarely, a civilization masters the suns
+and launches an **escape fleet**.
+
+### The experiment: measured results
+
+Across 10 random seeds per system, 120k steps each:
+
+| World | Awakened | Transcended | Mean zenith | Mean collapses |
+|---|---|---|---|---|
+| Lone Sun (Goldilocks) | 10/10 | **10/10** | Transcendence | 0.0 |
+| Binary Suns | 10/10 | **10/10** | Transcendence | 0.0 |
+| Trisolaris (3-body) | 7/10 | 2/10 | Writing | **5.3** |
+| Four-Body Maelstrom | **1/10** | 0/10 | Stone Age | — |
+
+That gradient is the whole thesis. Quiet skies produce spacefarers every single
+time. The chaotic three-body world *can* wake up, but it spends its history
+being knocked back down and escapes only twice in ten runs. In the maelstrom,
+intelligence is almost never affordable at all.
+
 ---
 
 ## Project layout
@@ -112,6 +174,7 @@ js/utils.js         RNG, math, colour, history ring-buffer
 js/physics.js       Body + NBodySystem (velocity-Verlet integrator)
 js/climate.js       flux → temperature → era classification
 js/evolution.js     Creature genome + Population selection model
+js/civilization.js  awakening, knowledge ages, collapses, pinnacle
 js/presets.js       the ready-made star systems
 js/world.js         binds physics+climate+life, history & event log
 js/render.js        cosmos / biosphere / graph rendering
@@ -122,7 +185,7 @@ js/main.js          boot + animation loop
 Everything is plain, dependency-free JavaScript. Open the browser console and
 poke at `window.DEMIURGE` (`.world`, `.renderer`, `.ui`, `.CONFIG`) to
 experiment — e.g. `DEMIURGE.CONFIG.dt = 0.02` to speed up time, or
-`DEMIURGE.world.population.nudgeTrait('dormancy', 0.5)`.
+`DEMIURGE.world.population.nudgeTrait('intelligence', 0.5)` to force an awakening.
 
 *Not to scale, and not a substitute for a real astrophysics or population-genetics
 code — but every knob is grounded in a real mechanism.*

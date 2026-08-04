@@ -98,6 +98,20 @@ class UI {
         this.world.log(`Divine edict: ${label} shifted ${delta > 0 ? '+' : ''}${delta}.`, 'life');
       };
     });
+    // Civilization interventions
+    this.$('btn-gift').onclick = () => {
+      const c = this.world.civ;
+      if (!c.awakened) { this.world.log('There is no one yet to receive the gift.', 'info'); return; }
+      c.giftKnowledge(260);
+      this.world.log('💡 A divine insight accelerates the civilisation.', 'tierup');
+    };
+    this.$('btn-burn').onclick = () => {
+      const c = this.world.civ;
+      if (!c.awakened) { this.world.log('There is no library to burn.', 'info'); return; }
+      c.burnLibrary(0.7);
+      this.world.log('🔥 You burn their libraries. Centuries of knowledge turn to ash.', 'collapse');
+    };
+
     this.$('in-cata').oninput = (e) => {
       this.$('out-cata').textContent = `${e.target.value}%`;
     };
@@ -227,7 +241,18 @@ class UI {
     eraEl.style.color = c.isStable ? 'var(--good)' : 'var(--warn)';
     this.$('stat-temp').textContent = fmt.temp(c.tempC);
     this.$('stat-pop').textContent = fmt.int(p.count);
-    this.$('stat-gen').textContent = fmt.int(p.generation);
+
+    const civ = w.civ;
+    const intel = p.avg('intelligence');
+    const ie = this.$('stat-intel');
+    ie.textContent = p.count ? fmt.pct(intel) : '—';
+    ie.style.color = intel >= CONFIG.civ.awakenIntel ? 'var(--good)'
+      : intel >= 0.35 ? 'var(--warn)' : 'var(--muted)';
+    const ae = this.$('stat-age');
+    ae.textContent = civ.ageName;
+    ae.style.color = civ.awakened ? (civ.transcended ? 'var(--warn)' : 'var(--accent)') : 'var(--muted)';
+    ae.style.fontSize = '12px';
+    this.$('stat-collapse').textContent = fmt.int(civ.collapses);
     this.$('stat-suns').textContent = fmt.int(w.system.suns.length);
     this.$('stat-time').textContent = (w.system.time / (2 * Math.PI)).toFixed(1);
     const drift = w.system.energyDrift();
@@ -236,6 +261,56 @@ class UI {
     de.style.color = Math.abs(drift) < 0.02 ? 'var(--good)' : Math.abs(drift) < 0.1 ? 'var(--warn)' : 'var(--bad)';
 
     if (this.renderer.selected) this.refreshSelected();
+  }
+
+  // The civilization panel: status line, age track, progress, key numbers.
+  updateCiv() {
+    const w = this.world, civ = w.civ, p = w.population;
+    const intel = p.avg('intelligence');
+    const status = this.$('civ-status');
+
+    if (!civ.awakened) {
+      status.classList.add('asleep');
+      if (p.count === 0) {
+        status.innerHTML = `<b>No life.</b> Seed a biosphere to begin the experiment.`;
+      } else if (civ.everAwakened) {
+        status.innerHTML = `<b>Fallen.</b> Sapience was lost — but the potential lingers. ` +
+          `Intelligence ${fmt.pct(intel)} / ${fmt.pct(CONFIG.civ.awakenIntel)} needed.`;
+      } else {
+        const need = [];
+        if (intel < CONFIG.civ.awakenIntel) need.push(`intelligence ${fmt.pct(intel)}→${fmt.pct(CONFIG.civ.awakenIntel)}`);
+        if (p.count < CONFIG.civ.awakenPop) need.push(`population ${p.count}→${CONFIG.civ.awakenPop}`);
+        if (!w.climate.isStable) need.push('a Stable Era');
+        status.innerHTML = need.length
+          ? `<b>Pre-sapient.</b> Needs ${need.join(', ')}.`
+          : `<b>On the brink of sapience…</b>`;
+      }
+    } else {
+      status.classList.remove('asleep');
+      status.innerHTML = `<b>${civ.tier.icon} ${civ.tier.name}</b> — knowledge ${fmt.int(civ.knowledge)}`;
+    }
+
+    // Age track
+    const track = this.$('civ-track');
+    const key = `${civ.tierIdx}|${civ.peakTierIdx}|${civ.awakened}`;
+    if (this._trackKey !== key) {
+      this._trackKey = key;
+      track.innerHTML = civ.tiers.map((t, i) => {
+        const cls = [];
+        if (civ.awakened && i === civ.tierIdx) cls.push('current');
+        else if (i <= civ.peakTierIdx && civ.everAwakened) cls.push('reached');
+        if (i === civ.peakTierIdx && civ.peakTierIdx > 0) cls.push('peak');
+        return `<span class="${cls.join(' ')}" title="${t.name}">${t.icon}</span>`;
+      }).join('');
+    }
+    this.$('civ-prog-fill').style.width =
+      `${(civ.awakened ? civ.tierProgress * 100 : 0).toFixed(0)}%`;
+
+    this.$('civ-facts').innerHTML =
+      `<span class="k">Zenith ever reached</span><span class="v">${civ.zenithName}</span>` +
+      `<span class="k">Dark Ages survived</span><span class="v">${civ.collapses}</span>` +
+      `<span class="k">Tech shielding</span><span class="v">${fmt.pct(civ.protection)}</span>` +
+      `<span class="k">Rebuild speed</span><span class="v">${civ.memoryBonus.toFixed(1)}×</span>`;
   }
 
   updateReadout() {
@@ -247,14 +322,16 @@ class UI {
       const frac = clamp((v - t.min) / (t.max - t.min), 0, 1);
       const col = key === 'optimalTemp' ? tempColor(v)
         : key === 'dormancy' ? 'var(--accent)'
-          : 'var(--good)';
+          : key === 'intelligence' ? 'var(--warn)'
+            : 'var(--good)';
       const disp = key === 'optimalTemp' ? fmt.temp(v)
-        : key === 'dormancy' ? fmt.pct(v)
+        : (key === 'dormancy' || key === 'intelligence') ? fmt.pct(v)
           : v.toFixed(1) + unit;
       return `<span class="k">${t.label}</span><span class="v">${disp}</span>` +
         `<span class="bar"><i style="width:${(frac * 100).toFixed(0)}%;background:${col}"></i></span>`;
     };
     el.innerHTML =
+      traitRow('intelligence') +
       traitRow('optimalTemp') +
       traitRow('tolerance', '°') +
       traitRow('dormancy') +
