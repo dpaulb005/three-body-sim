@@ -146,6 +146,76 @@ enough, selection breeds the expensive brains back out entirely and the
 survivors become beasts again. And very rarely, a civilization masters the suns
 and launches an **escape fleet**.
 
+
+### Divergent evolution — worlds produce different kinds of mind
+
+Dormancy was the first example of the rule this simulation runs on: a chaotic
+sky selects for dehydration *because dehydration genuinely helps*. Eighteen
+further adaptations extend that rule. Each one is
+
+1. **gated** on the world having actually been a certain way — measured over
+   time (thermal volatility, habitable fraction, era churn, sunless fraction,
+   radiation, gravity, rotation), not rolled at world creation;
+2. **accumulated** as pressure while those conditions hold, so it takes time and
+   can stall if the world changes character;
+3. **mechanically real** — it changes how the simulation runs afterwards.
+
+Only four can ever emerge on one world, rivals in the same category exclude
+each other, and each world rolls a hidden affinity, so two identical star
+systems still travel different roads.
+
+A few, to show the range:
+
+| Adaptation | Emerges when | What it actually does |
+|---|---|---|
+| **Distributed Consciousness** | violent, high-swing worlds | a lethal event costs a body, not a life (`redundancy`), but breeding slows |
+| **Reversible Intelligence** | boom-and-famine cycling | brain upkeep drops to 40% — they reabsorb their own minds in lean times |
+| **Biological Data Storage** | frequent collapses | 34% more knowledge survives a dark age; history is inherited, not taught |
+| **Photosynthetic Intelligence** | bright, steady worlds | food tracks *stellar flux* instead of temperature; upkeep halves |
+| **Sleep Evolution** | long sunless stretches | dormancy costs 55% less, and knowledge still grows while everyone sleeps |
+| **Symbiotic Intelligence** | long stable worlds | sapience comes easier — but if genetic diversity collapses, so does the mind |
+| **4D Spatial Sense** | three or more suns | they intuit the orbits that have no closed solution: +45% knowledge growth |
+| **Quantum Dormancy** | scorching or irradiated | dormancy costs 88% less — they skip catastrophic eras entirely |
+
+### Alien environments
+
+Five presets differ not in their orbits but in what the world physically *is* —
+gravity, hydrosphere, rotation, radiation, internal heat:
+
+- **Tidally Locked** — one face burning, one frozen; life holds the twilight ring.
+- **High-Gravity** — 3g. Sturdier against stress, but everything costs more.
+- **Ocean World** — huge thermal mass smooths a binary's swings into something gentle.
+- **Rogue Planet** — no sun at all; life survives under ice on geothermal vents.
+- **Flare Star** — relentless radiation; harden against it or learn to vanish.
+
+Crucially, the temperature that matters is the one in the **niche**, not the
+planetary mean. A rogue planet's surface sits at −204 °C while its sub-glacial
+ocean holds near 0 °C — so it is a permanently habitable world with a
+100% sunless sky.
+
+### Measured divergence
+
+Six seeds per world, 60,000 steps each. Note how the adaptation sets separate:
+
+| World | Alive | Awakened | Transcended | Characteristic adaptations |
+|---|---|---|---|---|
+| Lone Sun | 6/6 | 6/6 | 6/6 | empathic, predictive, symbiotic |
+| Binary | 6/6 | 6/6 | 6/6 | empathic, predictive, symbiotic |
+| Ocean World | 6/6 | 6/6 | 5/6 | empathic, predictive, symbiotic |
+| Figure-Eight | 6/6 | 6/6 | 6/6 | empathic, slow-thought, symbiotic |
+| High-Gravity | 5/6 | 5/6 | 5/6 | empathic, predictive, symbiotic |
+| **Rogue Planet** | 6/6 | 6/6 | 5/6 | **memory crystals, sleep evolution** |
+| **Flare Star** | 6/6 | 3/6 | 3/6 | **redundancy, EM communication, quantum dormancy** |
+| **Tidally Locked** | 6/6 | 2/6 | 1/6 | **redundancy, slow thought, EM communication** |
+| **Trisolaris** | 3/6 | 2/6 | 0/6 | **programmable bodies, distributed mind, biostorage** |
+| **Four-Body** | 1/6 | 0/6 | 0/6 | **programmable bodies, distributed mind, quantum dormancy** |
+
+Calm worlds converge on *social and contemplative* minds — empathy, prediction,
+symbiosis. Violent worlds converge on *plasticity and survival* — reconfigurable
+bodies, minds spread across many bodies, the ability to suspend life entirely.
+Irradiated worlds harden and learn to broadcast. Sunless worlds sleep, and keep
+their memories in stone.
+
 ### The experiment: measured results
 
 Across 10 random seeds per system, 120k steps each:

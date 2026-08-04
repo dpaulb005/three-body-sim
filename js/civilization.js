@@ -50,7 +50,8 @@ class Civilization {
   }
 
   get memoryBonus() {
-    return clamp(1 + CONFIG.civ.memoryPerCollapse * this.collapses, 1, CONFIG.civ.memoryCap);
+    const add = this._memoryAdd || 0;
+    return clamp(1 + add + CONFIG.civ.memoryPerCollapse * this.collapses, 1, CONFIG.civ.memoryCap + add);
   }
 
   // Progress toward the NEXT age, 0..1 (for a progress bar).
@@ -61,8 +62,9 @@ class Civilization {
     return clamp((this.knowledge - lo) / (hi - lo), 0, 1);
   }
 
-  update(pop, climate, dt) {
+  update(pop, climate, dt, fx = null) {
     const cfg = CONFIG.civ;
+    fx = fx || baseEffects();
     const events = [];
     const count = pop.count;
     const avgIntel = pop.avg('intelligence');
@@ -73,7 +75,8 @@ class Civilization {
 
     // ---- Awakening ----
     if (!this.awakened) {
-      if (avgIntel >= cfg.awakenIntel && count >= cfg.awakenPop && climate.isStable) {
+      const need = clamp(cfg.awakenIntel + fx.awakenIntelDelta, 0.15, 0.95);
+      if (avgIntel >= need && count >= cfg.awakenPop && climate.isStable) {
         this.awakened = true;
         this._lastTierIdx = 0;
         if (this.knowledge < this.tiers[0].k + 1) this.knowledge = this.tiers[0].k + 1;
@@ -106,12 +109,32 @@ class Civilization {
       return events;
     }
 
+    // ---- Symbiosis failure ----
+    // A mind assembled from several cooperating lineages ends when the gene
+    // pool narrows past the point where those partners still exist.
+    if (fx.needsDiversity > 0 && pop.diversity('optimalTemp') < fx.needsDiversity && this.tierIdx >= 1) {
+      if (this._collapseCd <= 0) {
+        this.knowledge *= cfg.collapseKeep;
+        this.collapses++;
+        this._collapseCd = cfg.collapseCooldown;
+        this._lastTierIdx = this.tierIdx;
+        events.push({ text: 'The partnership fails — genetic variety has narrowed past the point where their composite mind can hold together.', kind: 'collapse' });
+        return events;
+      }
+    }
+
     // ---- Collapse (Dark Age) ----
     const catastrophic = count < cfg.collapseAbsPop ||
       (!climate.isStable && count < this.peakPop * cfg.collapsePeakFrac && this.tierIdx >= 1);
     if (this._collapseCd <= 0 && catastrophic && this.tierIdx >= 1) {
+      // Some adaptations let a civilisation ride out what would end another.
+      if (fx.collapseResist > 0 && RNG() < fx.collapseResist) {
+        this._collapseCd = Math.floor(cfg.collapseCooldown / 2);
+        events.push({ text: 'The age should have ended here — but this civilisation held.', kind: 'tierup' });
+        return events;
+      }
       const fromAge = this.tier.name;
-      this.knowledge *= cfg.collapseKeep;
+      this.knowledge *= clamp(cfg.collapseKeep + fx.knowledgeKeepBonus, 0, 0.85);
       this.collapses++;
       this._collapseCd = cfg.collapseCooldown;
       this._lastTierIdx = this.tierIdx;
@@ -126,7 +149,8 @@ class Civilization {
     const popFactor = clamp(count / 200, 0.1, 1.6);
     const prodFactor = 0.2 + 0.8 * climate.productivity;   // science needs surplus
     const stableFactor = climate.isStable ? 1 : 0.10;      // near-halt through chaos
-    this.knowledge += cfg.growthRate * popFactor * prodFactor * stableFactor * this.memoryBonus;
+    this.knowledge += cfg.growthRate * popFactor * prodFactor * stableFactor
+      * this.memoryBonus * fx.knowledgeGrowthMult;
 
     // slow bleed if the population is too small to maintain its knowledge
     if (count < cfg.awakenPop * 0.4) this.knowledge = Math.max(0, this.knowledge - cfg.decayLowPop);

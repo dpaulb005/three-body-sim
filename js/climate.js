@@ -20,6 +20,7 @@ const ERA = {
 class Climate {
   constructor() {
     this.tempC = 15;          // current surface temperature (Celsius)
+    this.habitatTempC = 15;   // temperature in the niche life actually occupies
     this.eqTempC = 15;        // instantaneous equilibrium target
     this.flux = 0;            // total absorbed flux at the planet
     this.era = ERA.STABLE;
@@ -41,7 +42,7 @@ class Climate {
     return this.flux;
   }
 
-  update(system, dt) {
+  update(system, dt, profile = null) {
     this.computeFlux(system);
     // Quarter-power law -> Kelvin -> Celsius, plus a fixed greenhouse offset.
     const teqK = CONFIG.tempScaleK * Math.pow(Math.max(this.flux, 1e-9), 0.25) + CONFIG.greenhouseK;
@@ -50,20 +51,27 @@ class Climate {
     if (!this._initialised) { this.tempC = this.eqTempC; this._initialised = true; }
 
     // First-order thermal lag (exponential relaxation toward equilibrium).
-    const alpha = 1 - Math.exp(-dt / CONFIG.thermalInertiaTau);
+    // Oceans and deep ice give a world enormous thermal mass, so the same
+    // wandering suns produce far gentler swings on a water world than on rock.
+    const tau = CONFIG.thermalInertiaTau * (profile ? profile.thermalBuffer : 1);
+    const alpha = 1 - Math.exp(-dt / tau);
     this.tempC += (this.eqTempC - this.tempC) * alpha;
 
+    // What the biosphere actually experiences in its niche.
+    this.habitatTempC = profile ? profile.habitatTempC(this.tempC) : this.tempC;
+
     this._classify(system);
-    this._productivity();
+    this._productivity(profile);
     return this.tempC;
   }
 
   _classify(system) {
     const [lo, hi] = CONFIG.stableBandC;
-    if (this.tempC < lo) {
+    const t = this.habitatTempC;
+    if (t < lo) {
       // Distinguish "no sun in reach" (long night) from merely cold.
       this.era = this.flux < 0.0008 ? ERA.DIM : ERA.FREEZING;
-    } else if (this.tempC > hi) {
+    } else if (t > hi) {
       this.era = ERA.SCORCHING;
     } else {
       this.era = ERA.STABLE;
@@ -73,8 +81,9 @@ class Climate {
   get isStable() { return this.era === ERA.STABLE; }
 
   // Biological productivity: peaks near comfort temp AND needs adequate light.
-  _productivity() {
-    const dT = (this.tempC - CONFIG.comfortC) / CONFIG.comfortWidthC;
+  _productivity(profile = null) {
+    const base = profile ? profile.habitatTempC(this.tempC) : this.tempC;
+    const dT = (base - CONFIG.comfortC) / CONFIG.comfortWidthC;
     const tempFactor = Math.exp(-dT * dT);
     // Light factor saturates: more light helps up to a point, then heat hurts
     // (already captured by tempFactor). Normalise against reference flux.

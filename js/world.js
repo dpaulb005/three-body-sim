@@ -11,6 +11,9 @@ class World {
     this.climate = new Climate();
     this.population = new Population();
     this.civ = new Civilization();
+    this.profile = new WorldProfile();
+    this.signature = new Signature();
+    this.adaptations = new AdaptationSet();
 
     this.running = true;
     this.speed = 3;            // sim steps per animation frame
@@ -44,6 +47,10 @@ class World {
     this.climate = new Climate();
     this.population.clear();
     this.civ.reset();
+    // Presets may declare a physical world profile; default to Earth-like.
+    this.profile = new WorldProfile(preset.profile || {});
+    this.signature = new Signature();
+    this.adaptations.reset();
     this.stepCount = 0;
     this.presetName = preset.name;
     for (const k in this.hist) this.hist[k] = new History(600);
@@ -54,9 +61,10 @@ class World {
 
     preset.build(this);
     // Prime the climate so temperature starts at equilibrium, not a cold start.
-    this.climate.update(this.system, 0.0001);
+    this.climate.update(this.system, 0.0001, this.profile);
     if (seedLife) {
-      this.population.seed(CONFIG.seedCount, this.climate.tempC);
+      // Seed life adapted to the niche it will actually occupy.
+      this.population.seed(CONFIG.seedCount, this.climate.habitatTempC);
       this.log(`Life seeded on ${this.presetName}.`, 'life');
     }
     this.system.energy0 = null; // reset drift reference
@@ -72,11 +80,23 @@ class World {
     const dt = CONFIG.dt;
     this.system.step(dt);
     this.system.updateTrails();
-    this.climate.update(this.system, dt);
+    this.climate.update(this.system, dt, this.profile);
+
+    // Record what this world has actually been like, then let that history
+    // decide which evolutionary paths it is pushing life down.
+    const orbits = this.system.time / (2 * Math.PI);
+    this.signature.update(this.climate, orbits);
+    for (const e of this.adaptations.update(this.signature, this.profile,
+        { sunCount: this.system.suns.length })) {
+      this.log(e.text, e.kind);
+    }
+    const fx = this.adaptations.effects;
+
     // Technology shields the population from the climate — so an advanced
     // civilisation literally changes the selection pressure acting on it.
-    this.population.update(this.climate, dt, this.civ.protection);
-    for (const e of this.civ.update(this.population, this.climate, dt)) {
+    this.population.update(this.climate, dt, this.civ.protection, fx, this.profile);
+    this.civ._memoryAdd = fx.memoryAdd;
+    for (const e of this.civ.update(this.population, this.climate, dt, fx)) {
       this.log(e.text, e.kind);
     }
     this.stepCount++;

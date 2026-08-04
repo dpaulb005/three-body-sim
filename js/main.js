@@ -33,6 +33,7 @@
       textAccum = 0;
       ui.updateHUD();
       ui.updateCiv();
+      ui.updateAdaptations();
       ui.updateReadout();
       ui.updateLog();
     }

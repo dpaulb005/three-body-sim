@@ -94,8 +94,15 @@ class Population {
   seed(count, aroundTemp = null) {
     for (let i = 0; i < count; i++) {
       const g = randomGenome();
-      if (aroundTemp !== null) g.optimalTemp = clamp(gaussian(aroundTemp, 12),
-        CONFIG.traits.optimalTemp.min, CONFIG.traits.optimalTemp.max);
+      if (aroundTemp !== null) {
+        // Seed near current conditions, but with a wide spread and a pull
+        // toward the temperate optimum. A founding population perfectly matched
+        // to this instant is wiped out by the first swing, leaving selection
+        // nothing to work with — the variance IS the raw material.
+        const centre = lerp(aroundTemp, CONFIG.comfortC, 0.35);
+        g.optimalTemp = clamp(gaussian(centre, 22),
+          CONFIG.traits.optimalTemp.min, CONFIG.traits.optimalTemp.max);
+      }
       this.creatures.push(new Creature(g, 0));
     }
   }
@@ -121,10 +128,22 @@ class Population {
 
   // `protection` (0..1) comes from an awakened civilisation's technology and
   // shields the population from thermal stress — the tech-vs-suns race.
-  update(climate, dt, protection = 0) {
-    const T = climate.tempC;
-    const prod = climate.productivity;
+  update(climate, dt, protection = 0, fx = null, prof = null) {
+    // Selection acts on the niche temperature, not the planetary mean.
+    const T = climate.habitatTempC !== undefined ? climate.habitatTempC : climate.tempC;
     const rate = this.evolutionRate;
+    fx = fx || baseEffects();
+    // Photosynthetic lineages eat light directly, so their food supply tracks
+    // stellar flux rather than the temperature-shaped productivity curve.
+    let prod = climate.productivity;
+    if (fx.lightProductivity > 0) {
+      const lit = clamp(climate.flux / 0.0075, 0, 1.25);
+      prod = lerp(prod, lit, fx.lightProductivity);
+    }
+    // A world with internal heat has a floor under its food supply even with
+    // no sun at all — this is what makes a rogue planet liveable.
+    if (prof && prof.geothermal > 0) prod = Math.max(prod, prof.geothermal);
+    prod = clamp(prod, 0, 1.25);
     const K = Math.max(12, CONFIG.maxCreatures * (0.15 + 0.85 * prod));
 
     const newborns = [];
@@ -151,7 +170,8 @@ class Population {
       const dormN = c.g.dormancy;              // already 0..1
       const intel = c.g.intelligence;          // 0..1
       // Behavioural + technological buffering of thermal stress.
-      const relief = clamp(CONFIG.intelStressRelief * intel + protection, 0, 0.95);
+      const relief = clamp(CONFIG.intelStressRelief * intel + protection + fx.stressRelief
+        + (prof ? prof.gravityStressRelief : 0), 0, 0.95);
       const mortStress = stress * (1 - relief);
 
       // ---- Dormancy decision (dehydration) ----
@@ -160,7 +180,8 @@ class Population {
         // out longer Chaotic Eras.
         // Deep cryptobiosis: a highly dormant lineage burns almost nothing and
         // can ride out a Chaotic Era that lasts for ages (cf. tardigrades).
-        c.energy -= CONFIG.dormancyDrain * dt * 60 * Math.pow(1 - 0.97 * dormN, 2);
+        c.energy -= CONFIG.dormancyDrain * dt * 60 * fx.dormancyDrainMult
+          * Math.pow(1 - 0.97 * dormN, 2);
         // Rehydrate when conditions become survivable again.
         if (stress < 0.5 || RNG() < 0.001) c.dormant = false;
         if (c.energy <= 0) { this._kill(cs, i); deaths++; continue; }
@@ -176,8 +197,9 @@ class Population {
       if (mortStress > 1) death += 0.035 * (mortStress - 1) / (0.4 + sizeN); // size buffers stress
       // starvation when productivity can't feed metabolism — the fixed brain
       // cost makes intelligence lethal in poor conditions, life-changing in rich ones.
-      const upkeep = 0.4 + 0.6 * norm('metabolism', c.g.metabolism) + 0.4 * sizeN
-        + CONFIG.intelCostUpkeep * intel;
+      const upkeep = (0.4 + 0.6 * norm('metabolism', c.g.metabolism) + 0.4 * sizeN
+        + CONFIG.intelCostUpkeep * intel * fx.intelUpkeepMult)
+        * (prof ? prof.gravityUpkeep : 1);
       if (prod < upkeep * 0.5) death += CONFIG.baseDeathRate * (1 - prod / (upkeep * 0.5 + 1e-6));
       // old age
       if (c.age > CONFIG.maxAge) death += (c.age - CONFIG.maxAge) / CONFIG.maxAge * 0.01;
@@ -188,7 +210,7 @@ class Population {
         const reserve = clamp((c.energy - 0.5) / 2.0, 0, 1);
         death += crowding * 0.010 * (1 - reserve);
       }
-      death *= rate;
+      death *= rate * fx.deathMult;
 
       // energy bookkeeping: brains only pay off where productivity is high
       const gain = prod * (0.9 + 0.6 * norm('metabolism', c.g.metabolism))
@@ -200,7 +222,11 @@ class Population {
       // intelligence stops being visible to selection.
       c.energy = clamp(c.energy, 0, 3.0);
 
-      if (RNG() < death) { this._kill(cs, i); deaths++; continue; }
+      if (RNG() < death) {
+        // Redundant bodies/organs: a lethal event may cost a part, not a life.
+        if (fx.redundancy > 0 && RNG() < fx.redundancy) { c.energy = Math.max(0, c.energy - 0.25); }
+        else { this._kill(cs, i); deaths++; continue; }
+      }
 
       // ---- Reproduction ----
       if (cs.length + newborns.length < K && c.energy > 0.7 && stress < 1.0) {
@@ -211,7 +237,7 @@ class Population {
           * (1 - 0.45 * dormN)        // dormancy tax
           * (1 - 0.35 * tolN)         // generalist tax
           * (1 - 0.30 * sizeN)        // size tax
-          * (1 - CONFIG.intelReproTax * intel) // long childhoods: fewer offspring
+          * (1 - CONFIG.intelReproTax * fx.intelReproTaxMult * intel) // long childhoods
           * prod                      // needs a productive environment
           * (1 - stress)             // must be well-matched right now
           // Surplus energy buys breeding opportunities. This is what lets an
@@ -220,9 +246,9 @@ class Population {
           // poor or chaotic world there is no surplus, so the brain is pure
           // cost and selection strips it away.
           * (0.35 + 1.15 * clamp(c.energy - 0.7, 0, 1.6) / 1.6);
-        repro *= rate;
+        repro *= rate * fx.reproMult;
         if (RNG() < repro) {
-          const child = new Creature(mutateGenome(c.g, this.mutationScale), c.gen + 1);
+          const child = new Creature(mutateGenome(c.g, this.mutationScale * fx.mutationMult), c.gen + 1);
           child.px = clamp(c.px + (RNG() - 0.5) * 0.30, 0.01, 0.99);
           child.py = clamp(c.py + (RNG() - 0.5) * 0.22, 0.05, 0.95);
           c.energy -= 0.35;

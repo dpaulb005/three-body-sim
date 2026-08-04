@@ -85,7 +85,7 @@ class UI {
 
     // Evolution
     this.$('btn-seed').onclick = () => {
-      this.world.population.seed(CONFIG.seedCount, this.world.climate.tempC);
+      this.world.population.seed(CONFIG.seedCount, this.world.climate.habitatTempC);
       this.world.log('You breathe life into the world.', 'life');
     };
     this.$('btn-burst').onclick = () => {
@@ -250,7 +250,13 @@ class UI {
     const eraEl = this.$('stat-era');
     eraEl.textContent = c.era.replace('Chaotic Era — ', '');
     eraEl.style.color = c.isStable ? 'var(--green)' : 'var(--orange)';
-    this.$('stat-temp').textContent = fmt.temp(c.tempC);
+    // Show the habitat temperature when the niche differs from the surface
+    // (sub-glacial oceans, tidally locked twilight rings).
+    const showsNiche = Math.abs((c.habitatTempC ?? c.tempC) - c.tempC) > 1.5;
+    this.$('stat-temp').textContent = fmt.temp(showsNiche ? c.habitatTempC : c.tempC);
+    this.$('stat-temp').title = showsNiche
+      ? `Habitat ${fmt.temp(c.habitatTempC)} · planetary surface ${fmt.temp(c.tempC)}`
+      : '';
     this.$('stat-pop').textContent = fmt.int(p.count);
 
     const civ = w.civ;
@@ -322,6 +328,40 @@ class UI {
       row('Dark Ages survived', civ.collapses) +
       row('Tech shielding', fmt.pct(civ.protection)) +
       row('Rebuild speed', `${civ.memoryBonus.toFixed(1)}×`);
+  }
+
+  // Which evolutionary roads this world has taken, and which it is pushing toward.
+  updateAdaptations() {
+    const w = this.world, prof = w.profile, sig = w.signature;
+    const row = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+    this.$('world-profile').innerHTML =
+      row('Type', prof.label) +
+      row('Gravity', `${prof.gravity.toFixed(2)}g`) +
+      row('Surface', fmt.temp(w.climate.tempC)) +
+      (Math.abs(w.climate.habitatTempC - w.climate.tempC) > 1.5
+        ? row('Habitat niche', fmt.temp(w.climate.habitatTempC)) : '') +
+      row('Radiation', fmt.pct(prof.radiation)) +
+      (prof.geothermal > 0 ? row('Geothermal', fmt.pct(prof.geothermal)) : '') +
+      row('Thermal swing', `±${sig.tempVolatility.toFixed(1)}°`) +
+      row('Habitable time', fmt.pct(sig.stableFrac)) +
+      row('Sunless time', fmt.pct(sig.darkFrac));
+
+    const emerged = w.adaptations.list;
+    this.$('adapt-list').innerHTML = emerged.length
+      ? emerged.map(a => `<div class="adapt"><span class="grp">${a.group}</span>` +
+          `<h4>${a.name}</h4><p>${a.blurb}</p></div>`).join('')
+      : `<p class="adapt-empty">${sig.mature
+          ? 'Nothing yet. This world has not pushed life hard enough in any one direction.'
+          : 'Too early — the world has not been observed long enough.'}</p>`;
+
+    const press = w.adaptations.pressures(sig, prof, { sunCount: w.system.suns.length }).slice(0, 4);
+    this.$('adapt-pressure').innerHTML = press.length
+      ? press.map(({ a, p }) => {
+          const prog = w.adaptations.progress[a.id];
+          return `<div class="adapt pending"><span class="grp">${a.group} · pressure ${fmt.pct(p)}</span>` +
+            `<h4>${a.name}</h4><div class="track"><i style="width:${(prog * 100).toFixed(0)}%"></i></div></div>`;
+        }).join('')
+      : `<p class="adapt-empty">No path is under meaningful pressure right now.</p>`;
   }
 
   updateReadout() {
