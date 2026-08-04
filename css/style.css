@@ -4,6 +4,35 @@
    subject; the chrome stays out of its way.
    ============================================================ */
 
+/* ── Typefaces ────────────────────────────────────────────────
+   Self-hosted rather than pulled from the Google Fonts CDN: that
+   would send every visitor's IP to a third party, which would
+   contradict the privacy policy. Both are variable fonts, so one
+   36 KB file per family covers every weight we use.
+
+   Space Grotesk — geometric grotesk with squared terminals and
+   an offbeat 'g'/'k'. Reads as instrument panel rather than
+   costume, and stays legible down to 9 px for the dense readouts.
+   Orbitron — overtly sci-fi; reserved for the wordmark alone,
+   where character matters more than legibility.
+   ------------------------------------------------------------ */
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../fonts/space-grotesk.woff2') format('woff2-variations'),
+       url('../fonts/space-grotesk.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Orbitron';
+  src: url('../fonts/orbitron.woff2') format('woff2-variations'),
+       url('../fonts/orbitron.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* surfaces */
   --void:        #000000;
@@ -30,8 +59,9 @@
   --radius:      10px;
   --radius-sm:   7px;
 
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-          "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Inter",
+          "Helvetica Neue", system-ui, sans-serif;
+  --font-display: 'Orbitron', 'Space Grotesk', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -79,9 +109,10 @@ button, input, output { font-family: inherit; }
 }
 
 .wordmark {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink);
   white-space: nowrap;
@@ -101,7 +132,7 @@ button, input, output { font-family: inherit; }
 .m-label {
   font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-3);
   white-space: nowrap;
@@ -109,7 +140,7 @@ button, input, output { font-family: inherit; }
 .m-value {
   font-size: 15px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -235,7 +266,7 @@ body.paused .t-btn .ic-pause { display: none; }
   margin: 0 0 12px;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-3);
 }

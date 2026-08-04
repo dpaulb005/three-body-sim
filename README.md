@@ -169,6 +169,7 @@ intelligence is almost never affordable at all.
 ```
 index.html          markup + layout
 css/style.css       dark "deep space" theme
+fonts/              self-hosted variable fonts (see fonts/README.md)
 js/config.js        all tunable constants (physics, climate, evolution)
 js/utils.js         RNG, math, colour, history ring-buffer
 js/physics.js       Body + NBodySystem (velocity-Verlet integrator)
@@ -206,6 +207,14 @@ it on: **Settings → Pages → Source → GitHub Actions**. The site then lives
 All asset paths are relative, so it works from a subpath without changes. If
 you move it to your own domain, update the `canonical`/`og:url` tags in
 `index.html` and the URLs in `sitemap.xml` and `robots.txt`.
+
+### Typography
+
+Space Grotesk (interface) and Orbitron (wordmark) are **self-hosted** from
+`fonts/`, not loaded from the Google Fonts CDN — that would send every
+visitor's IP to a third party and contradict the privacy policy. Both are
+variable fonts, 36 KB for the pair, preloaded so there is no flash of fallback
+text. Licensing and attribution: `fonts/README.md`.
 
 ### Advertising
 

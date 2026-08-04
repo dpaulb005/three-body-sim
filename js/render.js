@@ -9,7 +9,7 @@
  */
 
 // Canvas text uses the same family as the interface.
-const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif';
+const FONT = '"Space Grotesk", -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif';
 
 class Renderer {
   constructor(world) {
