@@ -60,6 +60,10 @@ class World {
     this._recordHot = -Infinity; this._recordCold = Infinity;
 
     preset.build(this);
+    // Eliminate artificial centre-of-mass drift while preserving every
+    // relative position and velocity defined by the preset.
+    this.system.recenter();
+    this.profile.syncPlanet(this.system.planet);
     // Prime the climate so temperature starts at equilibrium, not a cold start.
     this.climate.update(this.system, 0.0001, this.profile);
     if (seedLife) {
@@ -125,7 +129,7 @@ class World {
     const ev = this.system.mergeEvents;
     while (ev.length) {
       const m = ev.shift();
-      this.log(`Stars collided: ${m.survivor} absorbed ${m.absorbed}.`, 'cosmic');
+      this.log(`Collision: ${m.survivor} absorbed ${m.absorbed}.`, 'cosmic');
     }
   }
 
@@ -192,6 +196,15 @@ class World {
     this.log('A rogue mass drifts into the system.', 'cosmic');
     return b;
   }
+  addPlanet(x, y, vx, vy, massEarth = 1, composition = 'earth') {
+    const b = this.system.add(new Body({ x, y, vx, vy, massEarth, composition,
+      type: 'planet', name: this.system.planet ? 'planet' : 'the world' }));
+    if (b === this.system.planet) this.profile.syncPlanet(b);
+    this.log(`A ${PLANET_COMPOSITIONS[composition]?.label || 'custom world'} coalesces (${massEarth.toFixed(1)} Earth masses).`, 'cosmic');
+    return b;
+  }
+
+  syncPlanetProfile() { this.profile.syncPlanet(this.system.planet); }
   _starName() {
     const names = ['Vega', 'Rigel', 'Mira', 'Lyra', 'Orin', 'Nova', 'Cygnus', 'Draco', 'Pyra', 'Zheng'];
     return names[Math.floor(RNG() * names.length)];
@@ -203,7 +216,9 @@ class World {
     const com = this.system.centerOfMass();
     const M = this.system.suns.reduce((s, b) => s + b.mass, 0) || 1;
     const r = 6;
-    this.system.add(_planet(com.x + r, com.y, 0, vCirc(M, r)));
+    this.system.add(_planet(com.x + r, com.y, 0, vCirc(M, r, 1), 1, 'earth'));
+    this.system.recenter();
+    this.syncPlanetProfile();
     this.log('A new world coalesces.', 'cosmic');
   }
 }

@@ -260,7 +260,7 @@ body.paused .t-btn .ic-pause { display: none; }
   border-bottom: 1px solid var(--hairline-2);
 }
 .block:last-child { border-bottom: none; }
-.block.hidden { display: none; }
+.block.hidden, .field.hidden { display: none; }
 
 .block h3 {
   margin: 0 0 12px;
@@ -344,6 +344,14 @@ body.paused .t-btn .ic-pause { display: none; }
   color: var(--ink);
 }
 .field input[type=range] { grid-column: 1 / -1; margin-top: 8px; }
+.field select {
+  max-width: 145px;
+  padding: 4px 7px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+}
 
 /* ── Range inputs ─────────────────────────────────────────── */
 input[type=range] {

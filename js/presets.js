@@ -10,12 +10,15 @@
 function _sun(x, y, vx, vy, mass, name) {
   return new Body({ x, y, vx, vy, mass, type: 'sun', name });
 }
-function _planet(x, y, vx, vy, mass = 3e-5) {
-  return new Body({ x, y, vx, vy, mass, type: 'planet', name: 'the world' });
+function _planet(x, y, vx, vy, massEarth = 1, composition = 'earth') {
+  return new Body({ x, y, vx, vy, massEarth, composition, type: 'planet', name: 'the world' });
 }
 
-// Circular orbital speed of a test body at radius r around total mass M.
-const vCirc = (M, r) => Math.sqrt(CONFIG.G * M / r);
+// Relative circular speed for a planet of finite Earth-mass around a primary
+// measured in solar masses. Recentring later gives both bodies their exact
+// barycentric share of that relative velocity.
+const vCirc = (primaryMass, r, secondaryMassEarth = 1) =>
+  Math.sqrt(CONFIG.G * (primaryMass + secondaryMassEarth * CONFIG.earthMassInSolar) / r);
 
 const PRESETS = [
   {
@@ -94,7 +97,7 @@ const PRESETS = [
       // where it stays perpetually in a Stable Era — the whole point of the
       // preset: a three-body system need not doom whatever lives near it.
       const r = 7;
-      s.add(_planet(r, 0, 0, vCirc(3, r), 1e-6));
+      s.add(_planet(r, 0, 0, vCirc(3, r, 0.33), 0.33));
     },
   },
 
@@ -107,30 +110,30 @@ const PRESETS = [
     name: 'Tidally Locked World',
     blurb: 'One face always burning, one always frozen; life clings to the twilight ring. Close orbit means a heavy radiation dose.',
     profile: { label: 'Tidally locked', tidalLocked: true, rotationOrbits: 1.0,
-               radiation: 0.55, hydrosphere: 'land', gravity: 0.95 },
+               radiation: 0.55, hydrosphere: 'land' },
     build(world) {
       const s = world.system;
       s.add(_sun(0, 0, 0, 0, 0.55, 'Ember'));
       // Very close in — which is why it locked in the first place.
       const r = 2.5;
-      s.add(_planet(r, 0, 0, vCirc(0.55, r)));
+      s.add(_planet(r, 0, 0, vCirc(0.55, r, 0.86), 0.86));
     },
   },
   {
     name: 'High-Gravity World',
     blurb: 'Three times Earth gravity. Everything is short, dense and immensely strong — and everything costs more to build and move.',
-    profile: { label: 'High gravity', gravity: 3.0, hydrosphere: 'land', radiation: 0.08 },
+    profile: { label: 'High gravity', hydrosphere: 'land', radiation: 0.08 },
     build(world) {
       const s = world.system;
       s.add(_sun(0, 0, 0, 0, 1.0, 'Sol'));
       const r = CONFIG.refDistance;
-      s.add(_planet(r, 0, 0, vCirc(1.0, r)));
+      s.add(_planet(r, 0, 0, vCirc(1.0, r, 13.5), 13.5, 'iron'));
     },
   },
   {
     name: 'Ocean World',
     blurb: 'A world of water under two suns. Enormous thermal mass smooths the chaos into something survivable — but there is no fire down there, and so no metallurgy.',
-    profile: { label: 'Ocean', hydrosphere: 'ocean', gravity: 1.1, radiation: 0.02 },
+    profile: { label: 'Ocean', hydrosphere: 'ocean', radiation: 0.02 },
     build(world) {
       const s = world.system;
       const m = 0.7, sep = 1.6, half = sep / 2;
@@ -138,31 +141,31 @@ const PRESETS = [
       s.add(_sun(-half, 0, 0, -vrel, m, 'Thal'));
       s.add(_sun(half, 0, 0, vrel, m, 'Meri'));
       const r = 4.3;
-      s.add(_planet(r, 0, 0, vCirc(2 * m, r)));
+      s.add(_planet(r, 0, 0, vCirc(2 * m, r, 8.36), 8.36, 'ocean'));
     },
   },
   {
     name: 'Rogue Planet',
     blurb: 'No sun at all. Life survives kilometres beneath the ice, around geothermal vents, where the concepts of sky and star may never arise.',
     profile: { label: 'Rogue / sub-glacial', hydrosphere: 'ice', geothermal: 0.72,
-               gravity: 1.0, radiation: 0.01 },
+               radiation: 0.01 },
     build(world) {
       const s = world.system;
       // A single distant, feeble star it is not bound to — effectively starless.
       s.add(_sun(-46, 0, 0, 0, 0.35, 'a distant star'));
-      s.add(_planet(0, 0, 0.02, 0));
+      s.add(_planet(0, 0, 0.02, 0, 13.5, 'ice'));
     },
   },
   {
     name: 'Flare Star',
     blurb: 'A violent dwarf that erupts without warning. Radiation is relentless, so life either hardens against it or learns to disappear until it passes.',
-    profile: { label: 'Flare-irradiated', radiation: 0.85, gravity: 0.9,
+    profile: { label: 'Flare-irradiated', radiation: 0.85,
                hydrosphere: 'land' },
     build(world) {
       const s = world.system;
       s.add(_sun(0, 0, 0, 0, 0.45, 'Kestrel'));
       const r = 2.15;
-      s.add(_planet(r, 0, 0, vCirc(0.45, r)));
+      s.add(_planet(r, 0, 0, vCirc(0.45, r, 0.73), 0.73));
       // A heavy companion on a wide eccentric path keeps stirring the system,
       // producing the irregular flare-like swings in received flux.
       s.add(_sun(9.5, 0, 0, 0.30, 0.30, 'Shrike'));

@@ -33,11 +33,11 @@ Runs in any modern browser (Chrome, Firefox, Safari, Edge).
 - Load ready-made systems: a calm **Lone Sun**, a **Binary**, the chaotic
   three-sun **Trisolaris**, a **Four-Body Maelstrom**, or the genuinely stable
   **Figure-Eight** choreography.
-- **Drag on empty space** in the cosmos to launch a new sun (or a dark rogue
-  planet) with whatever velocity your drag implies — slingshot it into an orbit
-  and watch it perturb everything.
-- **Click a star** to select it, then change its mass (and therefore its
-  brightness and gravity) live, or extinguish it entirely.
+- **Drag on empty space** in the cosmos to launch a new sun, planet, or dark
+  rogue mass with whatever velocity your drag implies — slingshot it into an
+  orbit and watch it perturb everything.
+- **Click any body** to change its mass live. Planets use Earth masses and can
+  be iron, rocky, Earth-like, oceanic, icy, or gaseous; stars use solar masses.
 
 **Play god of evolution**
 - **Seed Life**, then watch natural selection act every tick.
@@ -60,13 +60,31 @@ This is meant to be *semi-realistic* — the models are simplified but the
 mechanisms are real.
 
 ### Gravity — N-body with a symplectic integrator
-Every body pulls on every other via Newton's law of gravitation. Motion is
+Every body—including every finite-mass planet—pulls on every other via Newton's law of gravitation. Motion is
 advanced with **velocity Verlet**, a symplectic integrator: unlike RK4 it
 conserves energy over the millions of steps a long game accumulates, so orbits
 stay physical rather than spiralling into numerical nonsense. The HUD shows the
 live **energy drift** — it stays near 0%, which is how you know the orbits are
-faithful. Close encounters use **gravitational softening** (`r² + ε²`) so a
-near-collision produces a realistic slingshot instead of a divide-by-zero.
+faithful. The force law is exact Newtonian inverse-square gravity by default;
+there is no velocity clamp silently removing energy. Bodies merge only when
+their physical radii touch, conserving mass, momentum, and centre of mass.
+Close encounters automatically receive extra integration substeps while normal
+orbits stay on the fast baseline, and swept contact checks prevent tunnelling.
+
+The unit system is explicit: AU for distance, solar masses internally, and
+years divided by `2π` for time (`G=1`). Presets are shifted into their
+barycentric frame, eliminating artificial centre-of-mass drift. Automated
+checks cover inertial one-body motion, a finite-mass two-body circular orbit,
+the periodic three-body figure-eight, and four-body conservation.
+
+### Planetary mass, makeup, density, and radius
+
+Planet masses are configured in Earth masses. Six composition classes carry
+explicit mass fractions and representative bulk densities. Density and mass
+determine physical radius and surface gravity; water/ice/gas content also
+changes climate thermal inertia. The physical radius is kept separate from the
+larger marker drawn on screen, so making a planet visible does not give it an
+astronomically oversized collision target.
 
 The three-body problem is genuinely chaotic: tiny differences explode into
 wildly different futures, which is exactly why Trisolaris can never predict its
@@ -257,6 +275,12 @@ Everything is plain, dependency-free JavaScript. Open the browser console and
 poke at `window.DEMIURGE` (`.world`, `.renderer`, `.ui`, `.CONFIG`) to
 experiment — e.g. `DEMIURGE.CONFIG.dt = 0.02` to speed up time, or
 `DEMIURGE.world.population.nudgeTrait('intelligence', 0.5)` to force an awakening.
+
+Run the dependency-free physics validation and throughput benchmark with:
+
+```sh
+npm test
+```
 
 *Not to scale, and not a substitute for a real astrophysics or population-genetics
 code — but every knob is grounded in a real mechanism.*
