@@ -220,7 +220,7 @@ body.paused .t-btn .ic-pause { display: none; }
 .tabs button.active { color: var(--ink); background: rgba(255, 255, 255, 0.11); }
 
 .tab-body { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
-.pane { display: none; padding: 4px 0 28px; }
+.pane { display: none; padding: 4px 0 20px; }
 .pane.active { display: block; }
 
 /* ── Blocks ───────────────────────────────────────────────── */
@@ -465,12 +465,89 @@ input[type=range]::-moz-range-thumb {
 .log li.lost     { color: rgba(255, 69, 58, 0.72); font-style: italic; }
 .log li.pinnacle { color: var(--amber); font-weight: 600; }
 
+/* ============================================================
+   Advertising
+   Slots reserve their space up front so the layout never jumps,
+   and collapse to nothing when unfilled — an empty grey box is
+   worse than no box at all.
+   ============================================================ */
+.ad-slot {
+  display: none;                 /* only shown once a slot goes live */
+  margin-top: 4px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border-top: 1px solid var(--hairline);
+  background: var(--chrome-hi);
+}
+.ad-slot.is-live { display: flex; }
+
+.ad-tag {
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ad-body { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+
+/* Reserved geometry per placement — set before any ad request is made. */
+.ad-slot.rail .ad-body { width: 300px; height: 250px; }
+
+/* ── Footer ───────────────────────────────────────────────── */
+#site-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--hairline);
+  background: var(--chrome-hi);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+#site-footer a { color: var(--ink-2); text-decoration: none; }
+#site-footer a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ── Consent banner ───────────────────────────────────────── */
+#consent {
+  position: fixed;
+  left: 50%; bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: min(620px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  background: rgba(28, 28, 31, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+.consent-text strong { display: block; font-size: 13px; margin-bottom: 3px; }
+.consent-text p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-2); }
+.consent-text a { color: var(--teal); }
+.consent-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.consent-actions .btn { width: auto; padding: 7px 16px; white-space: nowrap; }
+
+@media (max-width: 620px) {
+  #consent { flex-direction: column; align-items: stretch; gap: 12px; }
+  .consent-actions .btn { flex: 1; }
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 1080px) {
   .metrics { gap: 18px; }
   .metric { min-width: 44px; }
 }
 @media (max-width: 900px) {
+  /* The hint would sit on top of the transport control once the stage narrows. */
+  #stage-hint { display: none; }
   main { flex-direction: column; }
   #stage { flex: 1 1 52%; }
   #inspector { flex: 1 1 48%; max-width: none; border-left: none; border-top: 1px solid var(--hairline); }
