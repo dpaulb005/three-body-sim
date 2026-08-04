@@ -264,9 +264,13 @@ const TECHS = [
   { id: 'orbital', name: 'Orbital Habitats', k: 3000, branch: 'mega',
     desc: 'People living off the surface entirely. The planet stops being the limit.',
     fx: { carry: 2.5, shield: 0.12, reach: 0.3, power: 3e14 } },
+  // This is what Type I actually means: a world's climate, orbit and atmosphere
+  // under deliberate management is a world whose entire energy budget you are
+  // already spending. The threshold should be crossed here, on a populated
+  // planet, and not incidentally on the way to taking the star apart.
   { id: 'worldhouse', name: 'Planetary Engineering', k: 4400, branch: 'mega', needs: 'orbital',
-    desc: 'Climate, orbit and atmosphere placed under deliberate management.',
-    fx: { shield: 0.25, carry: 1.8, power: 5e15 } },
+    desc: 'Climate, orbit and atmosphere placed under deliberate management. Nothing about the world is left to happen on its own any more.',
+    fx: { shield: 0.25, carry: 1.8, power: 1.5e16 } },
   { id: 'ringworld', name: 'Stellar Megastructure', k: 250000, branch: 'mega', needs: 'worldhouse',
     exclusive: 'star',
     desc: 'A solid structure around the star, on a scale no individual of a short-lived species could have overseen. Begun by people who knew they would not see it finished — or, for some, by people who knew they would.',

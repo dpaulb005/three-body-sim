@@ -157,6 +157,40 @@ run('Kardashev level is read off watts, and the thresholds land where physics pu
     'a Dyson swarm’s output is fixed, not per-capita');
 });
 
+run('Type I is earned on the planet, not incidentally on the way to Type II', () => {
+  // Everything a civilisation can build without committing to a star-scale
+  // structure. A populated world running all of it commands its own energy
+  // budget, which is the entire meaning of Type I.
+  const planetary = new Set(TECHS_BY_BRANCH_WITHOUT_STAR());
+  const fx = T.techEffects(planetary);
+  assert.equal(fx.powerFixed, 0, 'no star-scale structure is included here');
+  // Deployment is capped at 1 for a fully-populated world; see Civilization.
+  assert.ok(T.kardashev(fx.power) >= 1,
+    `planetary technology alone should reach Type I, got K=${T.kardashev(fx.power).toFixed(3)}`);
+  // And it must not overshoot into Type II — that has to cost a megastructure.
+  assert.ok(T.kardashev(fx.power) < 2,
+    `planetary technology alone must not reach Type II, got K=${T.kardashev(fx.power).toFixed(3)}`);
+  // Half a world's population is not a Type I civilisation.
+  assert.ok(T.kardashev(fx.power * 0.3) < 1,
+    'a thinly-populated world has not commanded its planet’s energy');
+});
+
+function TECHS_BY_BRANCH_WITHOUT_STAR() {
+  const human = { has: () => false };
+  const profile = { hydrosphere: 'land', radiation: 0 };
+  const telos = T.telosFor(human, profile);
+  const unlocked = new Set();
+  const civ = { knowledge: 0 };
+  for (let k = 0; k <= 200000; k += 500) {
+    civ.knowledge = k;
+    for (const tech of T.availableTechs(civ, unlocked, human, profile, telos)) {
+      if (tech.exclusive) continue;          // stop short of the commitment
+      unlocked.add(tech.id);
+    }
+  }
+  return unlocked;
+}
+
 run('every technology is reachable — no orphaned prerequisites', () => {
   const ids = new Set(T.TECHS.map((t) => t.id));
   for (const tech of T.TECHS) {
