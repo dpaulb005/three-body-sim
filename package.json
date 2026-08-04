@@ -1,0 +1,7 @@
+{
+  "name": "demiurge-simulator",
+  "private": true,
+  "scripts": {
+    "test": "node tests/physics.test.js"
+  }
+}

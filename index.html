@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Heliurge — Play God: N-Body Star Systems, Evolution &amp; Civilizations</title>
+<meta name="description" content="A free physics sandbox where you play god. Add suns to build chaotic multi-star systems like the one in The Three-Body Problem, then watch real natural selection evolve life — and civilizations rise, collapse into dark ages, and rebuild." />
+<link rel="canonical" href="https://dpaulb005.github.io/three-body-sim/" />
+<meta name="theme-color" content="#141416" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Heliurge — Play God with Suns, Life &amp; Civilizations" />
+<meta property="og:description" content="Build chaotic multi-sun systems, evolve life under real selection pressure, and watch civilizations climb and collapse. Free in your browser." />
+<meta property="og:url" content="https://dpaulb005.github.io/three-body-sim/" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preload" href="fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="fonts/orbitron.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ────────────────  Top bar  ──────────────── -->
+<header id="topbar">
+  <div class="wordmark">Heliurge</div>
+
+  <div class="metrics">
+    <div class="metric wide">
+      <span class="m-label">Era</span>
+      <span class="m-value" id="stat-era">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Surface</span>
+      <span class="m-value" id="stat-temp">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Population</span>
+      <span class="m-value" id="stat-pop">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Intelligence</span>
+      <span class="m-value" id="stat-intel">—</span>
+    </div>
+    <div class="metric wide">
+      <span class="m-label">Civilization</span>
+      <span class="m-value" id="stat-age">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Collapses</span>
+      <span class="m-value" id="stat-collapse">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Suns</span>
+      <span class="m-value" id="stat-suns">—</span>
+    </div>
+    <div class="metric">
+      <span class="m-label">Orbits</span>
+      <span class="m-value" id="stat-time">—</span>
+    </div>
+    <div class="metric" title="Energy conservation of the integrator. Near zero means the orbits are physically faithful.">
+      <span class="m-label">Drift</span>
+      <span class="m-value" id="stat-energy">—</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ────────────────  Cosmos  ──────────────── -->
+  <section id="stage">
+    <canvas id="cosmos"></canvas>
+
+    <div id="transport">
+      <button id="btn-play" class="t-btn" aria-label="Play or pause">
+        <svg viewBox="0 0 16 16" class="ic-pause"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>
+        <svg viewBox="0 0 16 16" class="ic-play"><path d="M5 3.5v9l8-4.5z"/></svg>
+      </button>
+      <div class="t-sep"></div>
+      <input id="in-speed" class="t-speed" type="range" min="0" max="12" step="1" value="3" aria-label="Speed" />
+      <output id="out-speed" class="t-read">3×</output>
+      <div class="t-sep"></div>
+      <button id="btn-reset" class="t-btn" aria-label="Reset">
+        <svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.6 3.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12.8 2.4v3.2H9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div id="viewbar">
+      <button data-view="planet" class="v-btn active" title="Keep the world and its brightest sun framed">World</button>
+      <button data-view="system" class="v-btn" title="Frame the whole system, ignoring anything that has escaped">System</button>
+      <button data-view="free" class="v-btn" title="Free camera — wheel to zoom, right-drag to pan">Free</button>
+      <div class="t-sep"></div>
+      <button id="btn-recenter" class="v-btn" title="Snap back to the world">Recentre</button>
+    </div>
+
+    <p id="stage-hint">Left-drag to launch · right-drag to pan · wheel to zoom</p>
+  </section>
+
+  <!-- ────────────────  Inspector  ──────────────── -->
+  <aside id="inspector">
+
+    <div class="view-stack">
+      <canvas id="surface" title="The planet's surface. Each dot is an organism, coloured by the temperature it prefers. Dashed = dormant, halo = intelligent."></canvas>
+      <canvas id="graphs" title="Climate, population and knowledge over time."></canvas>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="cosmos" class="active">Cosmos</button>
+      <button data-tab="life">Life</button>
+      <button data-tab="adapt">World</button>
+      <button data-tab="civ">Civs</button>
+      <button data-tab="galaxy">Galaxy</button>
+    </nav>
+
+    <div class="tab-body">
+
+      <!-- ───── Cosmos ───── -->
+      <section class="pane active" data-pane="cosmos">
+        <div class="block">
+          <h3>Star system</h3>
+          <div id="presets" class="list"></div>
+          <p id="preset-blurb" class="note"></p>
+        </div>
+
+        <div class="block">
+          <h3>Add a body</h3>
+          <div class="segmented" id="body-type">
+            <button data-type="sun" class="active">Sun</button>
+            <button data-type="planet">World</button>
+            <button data-type="rogue">Rogue</button>
+          </div>
+          <div class="field">
+            <label for="in-mass">Mass</label>
+            <output id="out-mass">1.00</output>
+            <input id="in-mass" type="range" min="0.1" max="3" step="0.05" value="1" />
+          </div>
+          <div class="field hidden" id="place-composition">
+            <label for="in-composition">Makeup</label>
+            <select id="in-composition"></select>
+          </div>
+          <button id="btn-add-center" class="btn">Place at rest</button>
+          <p class="note">Or drag anywhere on the cosmos to launch one with velocity.</p>
+        </div>
+
+        <div class="block hidden" id="sel-group">
+          <h3>Selected</h3>
+          <div id="sel-info" class="sel-info"></div>
+          <div class="field">
+            <label for="in-selmass">Mass</label>
+            <output id="out-selmass"></output>
+            <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
+          </div>
+          <div class="field hidden" id="sel-composition">
+            <label for="in-selcomposition">Makeup</label>
+            <select id="in-selcomposition"></select>
+          </div>
+          <div class="field">
+            <label for="in-selvx">Velocity X</label>
+            <output id="out-selvx"></output>
+            <input id="in-selvx" type="range" min="-3" max="3" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="in-selvy">Velocity Y</label>
+            <output id="out-selvy"></output>
+            <input id="in-selvy" type="range" min="-3" max="3" step="0.01" />
+          </div>
+          <div class="btn-row">
+            <button id="btn-circ" class="btn">Circular orbit</button>
+            <button id="btn-halt" class="btn">Bring to rest</button>
+          </div>
+          <button id="btn-del" class="btn danger" style="margin-top:6px">Extinguish</button>
+        </div>
+      </section>
+
+      <!-- ───── Life ───── -->
+      <section class="pane" data-pane="life">
+        <div class="block">
+          <h3>Biosphere</h3>
+          <div id="readout" class="readout"></div>
+        </div>
+
+        <div class="block">
+          <h3>Controls</h3>
+          <div class="btn-row">
+            <button id="btn-seed" class="btn primary">Seed life</button>
+            <button id="btn-burst" class="btn">Cambrian burst</button>
+          </div>
+          <div class="field">
+            <label for="in-mut">Mutation rate</label>
+            <output id="out-mut">6.0%</output>
+            <input id="in-mut" type="range" min="0" max="20" step="0.5" value="6" />
+          </div>
+          <div class="field">
+            <label for="in-evo">Evolution speed</label>
+            <output id="out-evo">1.0×</output>
+            <input id="in-evo" type="range" min="0.2" max="3" step="0.1" value="1" />
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Divine edicts</h3>
+          <div class="nudges">
+            <div class="nudge"><span>Intelligence</span>
+              <div class="pair">
+                <button data-trait="intelligence" data-delta="-0.15">Dull</button>
+                <button data-trait="intelligence" data-delta="0.15">Uplift</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Preferred temp</span>
+              <div class="pair">
+                <button data-trait="optimalTemp" data-delta="-6">Cooler</button>
+                <button data-trait="optimalTemp" data-delta="6">Warmer</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Tolerance</span>
+              <div class="pair">
+                <button data-trait="tolerance" data-delta="-8">Narrow</button>
+                <button data-trait="tolerance" data-delta="8">Broad</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Dormancy</span>
+              <div class="pair">
+                <button data-trait="dormancy" data-delta="-0.2">Suppress</button>
+                <button data-trait="dormancy" data-delta="0.2">Grant</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Size</span>
+              <div class="pair">
+                <button data-trait="size" data-delta="-0.4">Smaller</button>
+                <button data-trait="size" data-delta="0.4">Bigger</button>
+              </div>
+            </div>
+            <div class="nudge"><span>Metabolism</span>
+              <div class="pair">
+                <button data-trait="metabolism" data-delta="-0.3">Slower</button>
+                <button data-trait="metabolism" data-delta="0.3">Faster</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="block">
+          <h3>Cataclysm</h3>
+          <div class="field">
+            <label for="in-cata">Severity</label>
+            <output id="out-cata">60%</output>
+            <input id="in-cata" type="range" min="10" max="99" step="1" value="60" />
+          </div>
+          <button id="btn-extinct" class="btn danger">Trigger extinction event</button>
+        </div>
+      </section>
+
+      <!-- ───── World / Species ───── -->
+      <section class="pane" data-pane="adapt">
+        <div class="block">
+          <h3>Species</h3>
+          <div id="dossier"></div>
+        </div>
+
+        <div class="block">
+          <h3>Shape this world <span class="hint-inline">applies live</span></h3>
+          <div class="segmented" id="hydro"></div>
+          <div id="world-fields"></div>
+          <label class="check"><input type="checkbox" id="in-tidal" /> Tidally locked</label>
+          <div class="btn-row" style="margin-top:12px">
+            <button id="btn-randomise" class="btn">Randomise world</button>
+            <button id="btn-share" class="btn primary">Copy share link</button>
+          </div>
+          <p class="note" id="share-note"></p>
+        </div>
+
+        <div class="block">
+          <h3>Divergent evolution</h3>
+          <div id="adapt-list" class="adapt-list"></div>
+        </div>
+
+        <div class="block">
+          <h3>Under pressure</h3>
+          <p class="note">Paths this world is pushing life toward. Only four can ever emerge, and rivals in a category exclude each other.</p>
+          <div id="adapt-pressure" class="adapt-list"></div>
+        </div>
+      </section>
+
+      <!-- ───── Civilization ───── -->
+      <section class="pane" data-pane="civ">
+        <div class="block">
+          <div id="civ-switch" class="civ-switch"></div>
+          <div id="civ-headline" class="civ-headline"></div>
+        </div>
+        <div class="block">
+          <div id="civ-status" class="civ-status"></div>
+          <div class="civ-steps" id="civ-track"></div>
+          <div class="civ-prog"><i id="civ-prog-fill"></i></div>
+        </div>
+        <div class="block">
+          <h3>Character</h3>
+          <div id="civ-dims" class="readout"></div>
+        </div>
+        <div class="block">
+          <h3>Record</h3>
+          <div id="civ-facts" class="readout"></div>
+        </div>
+        <div class="block">
+          <h3>Technology</h3>
+          <div id="civ-tech" class="tech-list"></div>
+        </div>
+        <div class="block">
+          <h3>Evolutions</h3>
+          <div id="civ-traits" class="adapt-list"></div>
+        </div>
+        <div class="block">
+          <h3>History</h3>
+          <ul id="civ-history" class="log"></ul>
+        </div>
+        <div class="block">
+          <h3>Intervene</h3>
+          <div class="btn-row">
+            <button id="btn-gift" class="btn">Gift insight</button>
+            <button id="btn-burn" class="btn danger">Burn libraries</button>
+          </div>
+          <div class="btn-row" style="margin-top:8px">
+            <button id="btn-inspire" class="btn">Inspire</button>
+            <button id="btn-reconcile" class="btn">Reconcile</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───── Galaxy ───── -->
+      <section class="pane" data-pane="galaxy">
+        <div class="block">
+          <h3>Worlds <span class="hint-inline" id="galaxy-count"></span></h3>
+          <p class="note">Every world runs its own evolution in parallel. Once one grows loud enough and another is listening, they find each other.</p>
+          <div id="galaxy-list" class="galaxy-list"></div>
+          <div class="btn-row" style="margin-top:12px">
+            <button id="btn-add-world" class="btn primary">Seed a new world</button>
+            <button id="btn-del-world" class="btn danger">Remove</button>
+          </div>
+        </div>
+        <div class="block">
+          <h3>Contact</h3>
+          <div id="contact-log" class="readout"></div>
+        </div>
+      </section>
+
+      <!-- Ad slot lives in the scroll flow, after the controls: it reserves its
+           own space (so nothing shifts), is labelled, and sits well clear of
+           every interactive control so it can never catch a stray click. -->
+      <div class="ad-slot rail" data-ad="rail">
+        <span class="ad-tag">Advertisement</span>
+        <div class="ad-body"></div>
+      </div>
+
+    </div>
+
+    <footer id="site-footer">
+      <a href="privacy.html">Privacy</a>
+      <span>·</span>
+      <a href="#" id="consent-reopen">Cookie settings</a>
+      <span>·</span>
+      <a href="https://github.com/dpaulb005/three-body-sim" target="_blank" rel="noopener">Source</a>
+    </footer>
+  </aside>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/climate.js"></script>
+<script src="js/environment.js"></script>
+<script src="js/adaptations.js"></script>
+<script src="js/evolution.js"></script>
+<script src="js/technology.js"></script>
+<script src="js/civilization.js"></script>
+<script src="js/species.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/world.js"></script>
+<script src="js/galaxy.js"></script>
+<script src="js/render.js"></script>
+<script src="js/worldeditor.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+<script src="js/ads.js"></script>
+<script src="js/consent.js"></script>
+<script>Consent.start();</script>
+</body>
+</html>
