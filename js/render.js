@@ -12,8 +12,9 @@
 const FONT = '"Space Grotesk", -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif';
 
 class Renderer {
-  constructor(world) {
-    this.world = world;
+  constructor(galaxy) {
+    // The renderer always draws whichever world is currently selected.
+    this.galaxy = galaxy;
     this.cosmos = this._setup('cosmos');
     this.surface = this._setup('surface');
     this.graphs = this._setup('graphs');
@@ -27,6 +28,8 @@ class Renderer {
     window.addEventListener('resize', () => this._resizeAll());
     this._resizeAll();
   }
+
+  get world() { return this.galaxy.active; }
 
   _setup(id) {
     const canvas = document.getElementById(id);
@@ -189,10 +192,13 @@ class Renderer {
 
   _drawWorld(ctx, p, r, b) {
     r = Math.max(3.5, r);
-    // base tinted by current climate
     const tint = tempColor(this.world.climate.tempC);
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fillStyle = b.type === 'rogue' ? '#8e8aa8' : tint; ctx.fill();
+    // Give the disc the face its surface would actually have — ocean, ice,
+    // continents or molten rock — clipped to the sphere. Deliberately coarse:
+    // this is a marker, and the biosphere strip is where surfaces are read.
+    if (b.type === 'planet' && r > 5) this._drawPlanetSurface(ctx, p, r);
     // day/night terminator: dark side away from brightest sun
     const sun = this._brightestSunAt(b);
     if (sun && b.type === 'planet') {
@@ -341,6 +347,51 @@ class Renderer {
   // ── Biome + scenery ─────────────────────────────────────────────────────
   // Which visual world this is. Derived from the profile, not stored, so an
   // edited world changes its look immediately.
+  // A planet's face, from its hydrosphere and how hot it actually is.
+  _drawPlanetSurface(ctx, p, r) {
+    const prof = this.world.profile;
+    const t = this.world.climate.habitatTempC ?? this.world.climate.tempC;
+    const surf = this.world.climate.tempC;
+    const rng = makeRNG(0x9E11 + Math.round(prof.gravity * 100) + prof.hydrosphere.length * 31);
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.clip();
+
+    const blob = (fill, n, minR, maxR) => {
+      ctx.fillStyle = fill;
+      for (let i = 0; i < n; i++) {
+        const a = rng() * Math.PI * 2, d = rng() * r * 0.82;
+        const bx = p.x + Math.cos(a) * d, by = p.y + Math.sin(a) * d;
+        const br = r * (minR + rng() * (maxR - minR));
+        ctx.beginPath();
+        ctx.ellipse(bx, by, br, br * (0.55 + rng() * 0.5), rng() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+
+    if (surf > 240) {
+      // Molten: dark crust broken by glowing fissures.
+      ctx.fillStyle = 'rgba(30, 10, 8, 0.75)'; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      blob('rgba(255, 120, 40, 0.85)', 5, 0.12, 0.3);
+    } else if (prof.hydrosphere === 'ocean') {
+      ctx.fillStyle = 'rgba(24, 76, 130, 0.85)'; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      blob('rgba(210, 235, 255, 0.30)', 4, 0.16, 0.34);   // cloud banding
+    } else if (prof.hydrosphere === 'ice' || t < -8) {
+      ctx.fillStyle = 'rgba(214, 232, 246, 0.85)'; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      blob('rgba(150, 186, 214, 0.55)', 4, 0.12, 0.26);   // pressure ridges
+    } else {
+      // Continents on water, plus polar caps if it is cold enough for them.
+      ctx.fillStyle = 'rgba(30, 84, 132, 0.8)'; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      blob(t > 34 ? 'rgba(150, 116, 68, 0.9)' : 'rgba(74, 122, 62, 0.9)', 4, 0.18, 0.36);
+      if (t < 26) {
+        ctx.fillStyle = 'rgba(238, 248, 255, 0.8)';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y - r, r * 0.8, r * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(p.x, p.y + r, r * 0.8, r * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
   _biome(prof, clim) {
     if (prof.geothermal > 0.3 && prof.hydrosphere === 'ice') return 'subglacial';
     if (prof.hydrosphere === 'ocean') return 'ocean';

@@ -196,7 +196,7 @@ const ADAPTATIONS = [
     blurb: 'Perfect empathy, wired in: to injure another is to feel it yourself.',
     boon: 'A society that does not fracture. Cooperation is automatic and crime never evolved.',
     cost: 'Every loss is felt by everybody. Mass death is not a statistic here but a wound the whole species carries, and hard necessary choices are almost unmakeable.',
-    gate: (s) => (s.stableFrac > 0.55) ? clamp((s.stableFrac - 0.55) * 2.1, 0, 1) : 0,
+    gate: (s) => (s.stableFrac > 0.78) ? clamp((s.stableFrac - 0.78) * 4.2, 0, 1) : 0,
     effects: { collapseResist: 0.35, knowledgeGrowthMult: 1.18, deathMult: 0.9,
                cohesion: 0.5, adaptability: -0.15, innovation: -0.05 },
   },

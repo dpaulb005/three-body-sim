@@ -20,6 +20,17 @@ class World {
     this.stepCount = 0;
     this.presetName = '';
 
+    // ---- Identity within the galaxy ----
+    this.id = 1;
+    this.starName = 'Home';
+    this.galPos = { x: 0, y: 0 };
+    this.contacts = new Set();      // ids of worlds this one has detected
+    this.relations = new Map();     // id -> 'ally' | 'wary' | 'hostile'
+    // A permanent record, unlike `events` which is a rolling window. This is
+    // what the civilisation tab reads to show a whole history.
+    this.milestones = [];
+    this.speciesName = '';
+
     const H = 600;
     this.hist = {
       temp: new History(H),
@@ -55,6 +66,10 @@ class World {
     this.presetName = preset.name;
     for (const k in this.hist) this.hist[k] = new History(600);
     this.events.length = 0;
+    this.milestones.length = 0;
+    this.contacts.clear();
+    this.relations.clear();
+    this.speciesName = '';
     this._lastEra = null;
     this._milestones.clear();
     this._recordHot = -Infinity; this._recordCold = Infinity;
@@ -75,6 +90,14 @@ class World {
     if (this.events.length > 60) this.events.pop();
   }
 
+  /** Permanent, uncapped record of the things worth remembering. */
+  milestone(text, kind = 'info') {
+    this.milestones.push({ t: this.system.time, orbits: this.system.time / (2 * Math.PI), text, kind });
+    if (this.milestones.length > 400) this.milestones.shift();
+  }
+
+  get orbits() { return this.system.time / (2 * Math.PI); }
+
   // Advance one simulation step (physics + climate + life).
   step() {
     const dt = CONFIG.dt;
@@ -89,6 +112,7 @@ class World {
     for (const e of this.adaptations.update(this.signature, this.profile,
         { sunCount: this.system.suns.length })) {
       this.log(e.text, e.kind);
+      this.milestone(e.text, e.kind);
     }
     const fx = this.adaptations.effects;
 
@@ -98,6 +122,7 @@ class World {
     this.civ._memoryAdd = fx.memoryAdd;
     for (const e of this.civ.update(this.population, this.climate, dt, fx)) {
       this.log(e.text, e.kind);
+      this.milestone(e.text, e.kind);
     }
     this.stepCount++;
 
@@ -105,6 +130,9 @@ class World {
     this._trackNarrative();
 
     if (this.stepCount % this._sampleEvery === 0) this._sample();
+    if (this.stepCount % 600 === 0 && this.population.count > 0) {
+      this.speciesName = speciesName(this.profile, this.signature, this.adaptations);
+    }
   }
 
   _sample() {

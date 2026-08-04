@@ -8,12 +8,13 @@
  */
 
 (function boot() {
-  const world = new World();
-  const renderer = new Renderer(world);
-  const ui = new UI(world, renderer);
+  const galaxy = new Galaxy();
+  const world = galaxy.add(new World());
+  const renderer = new Renderer(galaxy);
+  const ui = new UI(galaxy, renderer);
 
   // expose for tinkering in the console
-  window.DEMIURGE = { world, renderer, ui, CONFIG };
+  window.DEMIURGE = { galaxy, renderer, ui, CONFIG, get world() { return galaxy.active; } };
 
   // A shared link fully specifies its world; otherwise start on Trisolaris.
   if (!ui.editor.applyFromURL()) {
@@ -24,8 +25,11 @@
   let textAccum = 0;
 
   function frame(now) {
-    if (world.running && world.speed > 0) {
-      for (let i = 0; i < world.speed; i++) world.step();
+    const active = galaxy.active;
+    if (active.running && active.speed > 0) {
+      // Every world advances, not just the one being watched — otherwise a
+      // civilisation you are not looking at could never rise to meet you.
+      for (let i = 0; i < active.speed; i++) galaxy.step();
     }
     renderer.draw();
 
@@ -37,8 +41,10 @@
       ui.updateCiv();
       ui.updateAdaptations();
       ui.updateDossier();
+      ui.updateGalaxy();
+      ui.updateCivSwitch();
+      ui.updateCivRecord();
       ui.updateReadout();
-      ui.updateLog();
     }
 
     requestAnimationFrame(frame);

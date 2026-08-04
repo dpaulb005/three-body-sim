@@ -4,8 +4,8 @@
  */
 
 class UI {
-  constructor(world, renderer) {
-    this.world = world;
+  constructor(galaxy, renderer) {
+    this.galaxy = galaxy;
     this.renderer = renderer;
     this.bodyType = 'sun';
     this.placeMass = 1.0;
@@ -14,6 +14,8 @@ class UI {
     this._bindPointer();
     this._bindKeys();
   }
+
+  get world() { return this.galaxy.active; }
 
   $(id) { return document.getElementById(id); }
 
@@ -134,7 +136,7 @@ class UI {
     };
 
     // ---- World editor ----
-    this.editor = new WorldEditor(this.world, this);
+    this.editor = new WorldEditor(this);
 
     const hydro = this.$('hydro');
     hydro.innerHTML = HYDRO.map(x =>
@@ -189,8 +191,46 @@ class UI {
       this.world.log('Old grievances are set down at last. The society knits back together.', 'tierup');
     };
 
+    // ---- Galaxy ----
+    this.$('btn-add-world').onclick = () => {
+      const w = new World();
+      this.galaxy.add(w);
+      // A fresh world gets a random preset and a randomised character, so the
+      // galaxy fills with places nobody designed.
+      w.loadPreset(PRESETS[Math.floor(RNG() * PRESETS.length)]);
+      if (RNG() < 0.55) {
+        const e = new WorldEditor({ world: w });
+        e.randomise();
+      }
+      this.galaxy.select(this.galaxy.count - 1);
+      this.renderer._camInit = false;
+      this._syncEditor();
+      this.refreshSelected();
+    };
+    this.$('btn-del-world').onclick = () => {
+      if (this.galaxy.count <= 1) {
+        this.world.log('This is the only world there is.', 'info');
+        return;
+      }
+      this.galaxy.remove(this.galaxy.activeIndex);
+      this.renderer._camInit = false;
+      this._syncEditor();
+    };
+
     this.setPlayLabel(true);
     this._syncEditor();
+  }
+
+  selectWorld(i) {
+    this.galaxy.select(i);
+    this.renderer.selected = null;
+    this.renderer._camInit = false;
+    this.refreshSelected();
+    this._syncEditor();
+    const p = PRESETS.findIndex(x => x.name === this.world.presetName);
+    this.$('preset-blurb').textContent = p >= 0 ? PRESETS[p].blurb : '';
+    this.$('presets').querySelectorAll('button').forEach((b, j) =>
+      b.classList.toggle('active', j === p));
   }
 
   // Push profile values back into the editor controls.
@@ -462,6 +502,76 @@ class UI {
             `<h4>${a.name}</h4><div class="track"><i style="width:${(prog * 100).toFixed(0)}%"></i></div></div>`;
         }).join('')
       : `<p class="adapt-empty">No path is under meaningful pressure right now.</p>`;
+  }
+
+  // The roster of worlds, and who has heard whom.
+  updateGalaxy() {
+    const g = this.galaxy;
+    this.$('galaxy-count').textContent = g.count === 1 ? 'one' : String(g.count);
+    const key = g.worlds.map(w => `${w.id}${w.civ.tierIdx}${w.population.count}${w.contacts.size}`).join('|')
+      + '#' + g.activeIndex;
+    if (this._galKey !== key) {
+      this._galKey = key;
+      this.$('galaxy-list').innerHTML = g.worlds.map((w, i) => {
+        const civ = w.civ.awakened ? w.civ.tier.name : (w.population.count ? 'pre-sapient' : 'lifeless');
+        const rel = w.contacts.size ? `${w.contacts.size} contact${w.contacts.size > 1 ? 's' : ''}` : 'alone';
+        return `<button class="gal-row${i === g.activeIndex ? ' active' : ''}" data-i="${i}">
+          <span class="gal-name">${w.starName}</span>
+          <span class="gal-sub">${w.profile.label} · ${civ} · pop ${w.population.count} · ${rel}</span>
+        </button>`;
+      }).join('');
+      this.$('galaxy-list').querySelectorAll('.gal-row').forEach(btn => {
+        btn.onclick = () => this.selectWorld(+btn.dataset.i);
+      });
+    }
+    const cs = g.contacts;
+    this.$('contact-log').innerHTML = cs.length
+      ? cs.slice(-6).reverse().map(c => {
+          const a = g.worlds.find(w => w.id === c.a), b = g.worlds.find(w => w.id === c.b);
+          if (!a || !b) return '';
+          const rel = a.relations.get(b.id) || 'wary';
+          return `<div class="r-row"><span class="k">${a.starName} ↔ ${b.starName}</span>` +
+            `<span class="v rel-${rel}">${rel}</span></div>`;
+        }).join('')
+      : `<p class="adapt-empty">No world has heard another. Most never do.</p>`;
+  }
+
+  // A full record for every civilisation the player has started.
+  updateCivSwitch() {
+    const g = this.galaxy;
+    const key = g.worlds.map(w => w.id + (w.speciesName || '')).join('|') + '#' + g.activeIndex;
+    if (this._switchKey === key) return;
+    this._switchKey = key;
+    this.$('civ-switch').innerHTML = g.worlds.map((w, i) =>
+      `<button class="civ-chip${i === g.activeIndex ? ' active' : ''}" data-i="${i}" title="${w.starName}">${
+        w.speciesName || w.starName}</button>`).join('');
+    this.$('civ-switch').querySelectorAll('.civ-chip').forEach(btn => {
+      btn.onclick = () => this.selectWorld(+btn.dataset.i);
+    });
+  }
+
+  updateCivRecord() {
+    const w = this.world, c = w.civ;
+    this.$('civ-headline').innerHTML =
+      `<b>${w.speciesName || 'Unnamed'}</b><span>${w.starName} · ${w.presetName}</span>` +
+      `<span>${w.orbits.toFixed(0)} orbits elapsed</span>`;
+
+    const list = w.adaptations.list;
+    this.$('civ-traits').innerHTML = list.length
+      ? list.map(a => `<div class="adapt"><span class="grp">${a.group}</span><h4>${a.name}</h4>` +
+          `<p><b style="color:var(--green)">Boon.</b> ${a.boon}</p>` +
+          `<p><b style="color:var(--red)">Cost.</b> ${a.cost}</p></div>`).join('')
+      : `<p class="adapt-empty">No divergent evolution yet.</p>`;
+
+    const ms = w.milestones;
+    const hkey = w.id + ':' + ms.length;
+    if (this._histKey !== hkey) {
+      this._histKey = hkey;
+      this.$('civ-history').innerHTML = ms.length
+        ? ms.slice(-60).reverse().map(m =>
+            `<li class="${m.kind}"><time>${m.orbits.toFixed(0)}</time><span>${m.text}</span></li>`).join('')
+        : `<li><span class="adapt-empty">Nothing has happened here yet.</span></li>`;
+    }
   }
 
   updateReadout() {

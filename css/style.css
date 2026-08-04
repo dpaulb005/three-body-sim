@@ -523,8 +523,42 @@ input[type=range]::-moz-range-thumb {
 }
 .check input { accent-color: var(--blue); width: 14px; height: 14px; cursor: pointer; }
 
+/* ── Galaxy roster ────────────────────────────────────────── */
+.galaxy-list { display: flex; flex-direction: column; gap: 3px; }
+.gal-row {
+  display: grid; gap: 2px; text-align: left;
+  padding: 9px 11px; background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background .14s ease;
+}
+.gal-row:hover { background: rgba(255,255,255,.05); }
+.gal-row.active { background: rgba(10,132,255,.16); border-color: rgba(10,132,255,.4); }
+.gal-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.gal-sub { font-size: 10.5px; color: var(--ink-3); }
+.rel-ally    { color: var(--green); }
+.rel-wary    { color: var(--ink-2); }
+.rel-hostile { color: var(--red); }
+
+/* ── Civilisation switcher ────────────────────────────────── */
+.civ-switch { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+.civ-chip {
+  padding: 4px 10px; font-size: 11px; font-weight: 500;
+  color: var(--ink-2); background: var(--raised);
+  border: 1px solid var(--hairline); border-radius: 20px;
+  cursor: pointer; transition: background .14s ease, color .14s ease;
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.civ-chip:hover { color: var(--ink); background: #2e2e34; }
+.civ-chip.active { color: var(--ink); background: rgba(10,132,255,.2); border-color: rgba(10,132,255,.45); }
+.civ-headline { display: grid; gap: 2px; }
+.civ-headline b {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.civ-headline span { font-size: 10.5px; color: var(--ink-3); letter-spacing: .03em; }
+
 /* ── Chronicle ────────────────────────────────────────────── */
-.log { list-style: none; margin: 0; padding: 8px 18px 24px; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
 .log li {
   display: grid;
   grid-template-columns: 40px 1fr;
@@ -554,6 +588,7 @@ input[type=range]::-moz-range-thumb {
 .log li.pinnacle { color: var(--amber); font-weight: 600; }
 .log li.adapt    { color: var(--violet); font-weight: 550; }
 .log li.crisis   { color: #ff7a5c; font-weight: 550; }
+.log li.contact  { color: #7de3ff; font-weight: 600; }
 
 /* ============================================================
    Advertising

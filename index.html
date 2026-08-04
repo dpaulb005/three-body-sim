@@ -99,8 +99,8 @@
       <button data-tab="cosmos" class="active">Cosmos</button>
       <button data-tab="life">Life</button>
       <button data-tab="adapt">World</button>
-      <button data-tab="civ">Civ</button>
-      <button data-tab="log">Chronicle</button>
+      <button data-tab="civ">Civs</button>
+      <button data-tab="galaxy">Galaxy</button>
     </nav>
 
     <div class="tab-body">
@@ -252,6 +252,10 @@
       <!-- ───── Civilization ───── -->
       <section class="pane" data-pane="civ">
         <div class="block">
+          <div id="civ-switch" class="civ-switch"></div>
+          <div id="civ-headline" class="civ-headline"></div>
+        </div>
+        <div class="block">
           <div id="civ-status" class="civ-status"></div>
           <div class="civ-steps" id="civ-track"></div>
           <div class="civ-prog"><i id="civ-prog-fill"></i></div>
@@ -263,6 +267,14 @@
         <div class="block">
           <h3>Record</h3>
           <div id="civ-facts" class="readout"></div>
+        </div>
+        <div class="block">
+          <h3>Evolutions</h3>
+          <div id="civ-traits" class="adapt-list"></div>
+        </div>
+        <div class="block">
+          <h3>History</h3>
+          <ul id="civ-history" class="log"></ul>
         </div>
         <div class="block">
           <h3>Intervene</h3>
@@ -277,9 +289,21 @@
         </div>
       </section>
 
-      <!-- ───── Chronicle ───── -->
-      <section class="pane" data-pane="log">
-        <ul id="log" class="log"></ul>
+      <!-- ───── Galaxy ───── -->
+      <section class="pane" data-pane="galaxy">
+        <div class="block">
+          <h3>Worlds <span class="hint-inline" id="galaxy-count"></span></h3>
+          <p class="note">Every world runs its own evolution in parallel. Once one grows loud enough and another is listening, they find each other.</p>
+          <div id="galaxy-list" class="galaxy-list"></div>
+          <div class="btn-row" style="margin-top:12px">
+            <button id="btn-add-world" class="btn primary">Seed a new world</button>
+            <button id="btn-del-world" class="btn danger">Remove</button>
+          </div>
+        </div>
+        <div class="block">
+          <h3>Contact</h3>
+          <div id="contact-log" class="readout"></div>
+        </div>
       </section>
 
       <!-- Ad slot lives in the scroll flow, after the controls: it reserves its
@@ -313,6 +337,7 @@
 <script src="js/species.js"></script>
 <script src="js/presets.js"></script>
 <script src="js/world.js"></script>
+<script src="js/galaxy.js"></script>
 <script src="js/render.js"></script>
 <script src="js/worldeditor.js"></script>
 <script src="js/ui.js"></script>

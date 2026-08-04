@@ -30,11 +30,13 @@ const HYDRO = [
 ];
 
 class WorldEditor {
-  constructor(world, ui) {
-    this.world = world;
+  constructor(ui) {
     this.ui = ui;
     this.seed = 0xC0FFEE;
   }
+
+  // Always edits whichever world is currently selected.
+  get world() { return this.ui.world; }
 
   // ---- live edits ----
   set(key, value) {
