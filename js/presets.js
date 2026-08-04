@@ -83,15 +83,17 @@ const PRESETS = [
   },
   {
     name: 'Figure-Eight Choreography',
-    blurb: 'A rare STABLE three-body orbit: three equal suns chase each other along a single figure-8. Proof that chaos is not guaranteed.',
+    blurb: 'A rare STABLE three-body orbit: three equal suns chase each other along a single figure-8, giving the world a permanent Stable Era. Proof that three suns need not mean chaos.',
     build(world) {
       const s = world.system;
       // Chenciner-Montgomery solution (G=1, m=1).
       s.add(_sun(0.97000436, -0.24308753, 0.4662036850, 0.4323657300, 1, 'One'));
       s.add(_sun(-0.97000436, 0.24308753, 0.4662036850, 0.4323657300, 1, 'Two'));
       s.add(_sun(0, 0, -0.93240737, -0.86473146, 1, 'Three'));
-      // A near-massless world far enough out to barely perturb the choreography.
-      const r = 11;
+      // A near-massless world, placed in this trio's habitable zone (~21-29C)
+      // where it stays perpetually in a Stable Era — the whole point of the
+      // preset: a three-body system need not doom whatever lives near it.
+      const r = 7;
       s.add(_planet(r, 0, 0, vCirc(3, r), 1e-6));
     },
   },
