@@ -216,6 +216,75 @@ bodies, minds spread across many bodies, the ability to suspend life entirely.
 Irradiated worlds harden and learn to broadcast. Sunless worlds sleep, and keep
 their memories in stone.
 
+
+### Every adaptation is a trade
+
+Evolution does not produce perfection. Selection favours whatever improves
+reproductive success in *this* environment, and every such trait is paid for
+somewhere else. So a civilisation here is not one number but four:
+
+| | |
+|---|---|
+| **Knowledge** | what they have worked out; lost in collapses; unlocks the ages |
+| **Innovation** | how readily genuinely new ideas appear — this *gates* knowledge growth |
+| **Cohesion** | whether the society holds together under strain |
+| **Adaptability** | how well they cope when conditions change without warning |
+
+Which means there are **four ways to fall**, not one:
+
+- **Collapse** — the climate kills enough of them *(tests survival)*
+- **Schism** — cohesion gives way and the society tears itself apart *(tests cohesion)*
+- **Stagnation** — innovation dies and knowledge simply stops moving *(tests innovation)*
+- **Shock** — the era turns faster than they can respond *(tests adaptability)*
+
+A species can be extraordinary and still be destroyed by exactly one of these.
+Some examples of how the trade lands mechanically:
+
+| Adaptation | Extraordinary at | The price |
+|---|---|---|
+| **Crystal Memory** | flawless recall; knowledge transferred, not taught | nothing fades, so feuds never cool — **cohesion −42%** |
+| **Inherited Memory** | children born knowing; almost nothing lost in a dark age | the dead ideas are inherited too — **innovation −35%** |
+| **Time-Delayed Thinking** | planning across centuries, almost never wrong | a crisis ends before they decide — **adaptability −45%** |
+| **Collective Consciousness** | a whole species reasoning at once | no dissent, no second opinion — **innovation −40%**, and scattering severs the mind |
+| **Perfect Logic** | never a fallacious step | they will not guess, and most discoveries begin as a guess — **innovation −45%** |
+| **Biological Immortality** | expertise compounding for millennia | authority never vacates; a society with everything to lose stops risking anything |
+| **Photosynthesis** | almost no need for food | feeble power output, and a long night is starvation |
+| **EM Communication** | instant planet-wide coordination | a flare drowns the channel and they go leaderless at once |
+
+Penalties compress rather than simply summing, so three costs leave a species
+crippled in an interesting way rather than identically flattened. And a society
+that schisms builds **institutions** — law, arbitration, norms — which raise the
+floor under cohesion, so a grudge-keeping biology settles into an uneasy,
+heavily-governed peace instead of fracturing forever.
+
+**The result is that the Goldilocks zone stops being obviously "best."** A
+perfectly calm world frequently evolves Perfect Logic and Time-Delayed Thinking,
+producing a brilliant, unfracturable, utterly stagnant civilisation that never
+gets past Agriculture. Meanwhile a chaotic three-body world that selects for
+Programmable Bodies and Chemical Personalities can produce restless innovators
+who transcend. Liquid water is a range where life is *possible* — not a
+guarantee that it goes anywhere.
+
+### The species dossier
+
+Every world generates a field entry for whatever evolved there: a name derived
+from the world's measured character, what they are extraordinary at, and what it
+cost them — read off their real numbers, never authored. The verdict line is
+usually the same, and it is the point:
+
+> *Neither better nor worse than us — a different set of compromises, made for a
+> different world.*
+
+### Editing worlds
+
+The **World** tab exposes the planet's physical character directly — gravity,
+hydrosphere, radiation, internal heat, rotation period, tidal locking — and every
+change applies live and re-aims evolution, because these feed straight into
+upkeep, thermal buffering, habitat temperature and which adaptations can ever
+emerge. **Copy share link** encodes the whole world into the URL fragment, so a
+world can be handed to someone else exactly as it was made. (A fragment never
+reaches a server, so sharing needs no backend.)
+
 ### The experiment: measured results
 
 Across 10 random seeds per system, 120k steps each:

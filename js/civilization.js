@@ -1,23 +1,37 @@
 /*
- * civilization.js — The second stage: once biology evolves enough
- * intelligence, a civilisation "awakens" and starts accumulating KNOWLEDGE.
+ * civilization.js — The second stage: once biology evolves enough intelligence,
+ * a civilisation awakens and starts accumulating knowledge.
  *
- * This is the Three-Body ratchet. Knowledge climbs through named ages while the
- * world stays survivable, and technology increasingly shields the population
- * from the climate (the tech-vs-suns race). But a bad enough Chaotic Era
- * shatters the civilisation into a Dark Age, wiping most of its knowledge — and
- * each rebuild goes faster, because cultural/genetic memory persists. Only a
- * world lucky enough to grant long, calm, productive stretches ever reaches the
- * summit; brutal worlds collapse forever, or breed the costly brains back out
- * entirely and sink back into mere animals.
+ * A civilisation here is not one number. It has four:
  *
- * update() returns a list of narrative events for the World to log.
+ *   knowledge     what they have worked out. Accumulates; mostly lost in a
+ *                 collapse; unlocks the named ages.
+ *   innovation    how readily genuinely new ideas appear. Gates the rate at
+ *                 which knowledge grows at all.
+ *   cohesion      whether the society holds together under strain.
+ *   adaptability  how well they cope when conditions change without warning.
+ *
+ * That split exists so the costs of an adaptation can be real. Perfect recall
+ * gives flawless knowledge and destroys cohesion, because nothing is ever
+ * forgiven. Inherited memory preserves everything through a dark age and
+ * freezes innovation, because the dead ideas are inherited too. Slow, careful
+ * thought plans centuries ahead and is annihilated by a change it did not see.
+ *
+ * So there are four ways to fall, not one:
+ *
+ *   COLLAPSE    the climate simply kills enough of them  (tests raw survival)
+ *   SCHISM      cohesion gives way and the society tears  (tests cohesion)
+ *   STAGNATION  innovation dies; knowledge stops moving   (tests innovation)
+ *   SHOCK       the world changes faster than they can    (tests adaptability)
+ *
+ * A species can be extraordinary and still be killed by exactly one of these.
+ * That is the point.
  */
 
+const DIM_BASE = { innovation: 0.55, cohesion: 0.60, adaptability: 0.55 };
+
 class Civilization {
-  constructor() {
-    this.reset();
-  }
+  constructor() { this.reset(); }
 
   reset() {
     this.awakened = false;
@@ -25,14 +39,34 @@ class Civilization {
     this.knowledge = 0;
     this.collapses = 0;
     this.peakPop = 0;
-    this.peakTierIdx = 0;      // highest age ever reached (zenith)
+    this.peakTierIdx = 0;
     this.transcended = false;
+
+    // The three soft dimensions, 0..1.
+    this.innovation = DIM_BASE.innovation;
+    this.cohesion = DIM_BASE.cohesion;
+    this.adaptability = DIM_BASE.adaptability;
+
+    this.crises = { schism: 0, stagnation: 0, shock: 0 };
+    // Hysteresis: a society that has just torn itself apart cannot immediately
+    // do it again. Cohesion must genuinely recover first, otherwise a species
+    // with stacked cohesion penalties schisms forever in a loop.
+    this._schismArmed = true;
+    // Each schism survived teaches the society something about holding
+    // together — law, norms, institutions. Without this a species with stacked
+    // cohesion penalties simply fractures forever on a loop.
+    this._institutions = 0;
+    this.stagnant = false;
+    this._stagnantFor = 0;
     this._collapseCd = 0;
+    this._crisisCd = 0;
     this._lastTierIdx = 0;
+    this._memoryAdd = 0;
+    this._prevEra = null;
+    this._shockTimer = 0;
   }
 
   get tiers() { return CONFIG.civ.tiers; }
-
   get tierIdx() {
     let idx = 0;
     for (let i = 0; i < this.tiers.length; i++) if (this.knowledge >= this.tiers[i].k) idx = i;
@@ -42,11 +76,9 @@ class Civilization {
   get ageName() { return this.awakened ? this.tier.name : (this.everAwakened ? 'Fallen' : '—'); }
   get zenithName() { return this.tiers[this.peakTierIdx].name; }
 
-  // Fraction of climate stress that technology absorbs (0..maxProtection).
   get protection() {
     if (!this.awakened) return 0;
-    const frac = this.tierIdx / (this.tiers.length - 1);
-    return frac * CONFIG.civ.maxProtection;
+    return (this.tierIdx / (this.tiers.length - 1)) * CONFIG.civ.maxProtection;
   }
 
   get memoryBonus() {
@@ -54,13 +86,14 @@ class Civilization {
     return clamp(1 + add + CONFIG.civ.memoryPerCollapse * this.collapses, 1, CONFIG.civ.memoryCap + add);
   }
 
-  // Progress toward the NEXT age, 0..1 (for a progress bar).
   get tierProgress() {
     const i = this.tierIdx;
     if (i >= this.tiers.length - 1) return 1;
     const lo = this.tiers[i].k, hi = this.tiers[i + 1].k;
     return clamp((this.knowledge - lo) / (hi - lo), 0, 1);
   }
+
+  get totalCrises() { return this.crises.schism + this.crises.stagnation + this.crises.shock; }
 
   update(pop, climate, dt, fx = null) {
     const cfg = CONFIG.civ;
@@ -69,9 +102,14 @@ class Civilization {
     const count = pop.count;
     const avgIntel = pop.avg('intelligence');
 
-    // decaying record of the largest population seen (for collapse detection)
     this.peakPop = Math.max(count, this.peakPop * 0.9997);
     if (this._collapseCd > 0) this._collapseCd--;
+    if (this._crisisCd > 0) this._crisisCd--;
+
+    // A sudden era change is what adaptability is actually tested against.
+    if (this._prevEra !== null && climate.era !== this._prevEra) this._shockTimer = 260;
+    this._prevEra = climate.era;
+    if (this._shockTimer > 0) this._shockTimer--;
 
     // ---- Awakening ----
     if (!this.awakened) {
@@ -79,6 +117,7 @@ class Civilization {
       if (avgIntel >= need && count >= cfg.awakenPop && climate.isStable) {
         this.awakened = true;
         this._lastTierIdx = 0;
+        this._resetDimensions(fx);
         if (this.knowledge < this.tiers[0].k + 1) this.knowledge = this.tiers[0].k + 1;
         const again = this.everAwakened;
         this.everAwakened = true;
@@ -92,82 +131,63 @@ class Civilization {
       return events;
     }
 
-    // ---- Loss of sapience (brains bred out, or extinction) ----
     if (count === 0) {
       events.push({ text: 'The last of the people is gone. Their knowledge turns to dust.', kind: 'lost' });
       this.reset();
       return events;
     }
     if (avgIntel < cfg.loseIntel) {
-      // Survival pressure has selected the expensive brains away.
       events.push({ text: 'Intelligence has been bred out by relentless hardship — the survivors are beasts again.', kind: 'lost' });
-      const keepMemory = this.collapses;
-      const everA = this.everAwakened;
+      const keep = this.collapses, ever = this.everAwakened;
       this.reset();
-      this.collapses = keepMemory;     // genetic predisposition lingers -> faster re-awakening
-      this.everAwakened = everA;
+      this.collapses = keep; this.everAwakened = ever;
       return events;
     }
 
-    // ---- Symbiosis failure ----
-    // A mind assembled from several cooperating lineages ends when the gene
-    // pool narrows past the point where those partners still exist.
-    if (fx.needsDiversity > 0 && pop.diversity('optimalTemp') < fx.needsDiversity && this.tierIdx >= 1) {
-      if (this._collapseCd <= 0) {
-        this.knowledge *= cfg.collapseKeep;
-        this.collapses++;
-        this._collapseCd = cfg.collapseCooldown;
-        this._lastTierIdx = this.tierIdx;
-        events.push({ text: 'The partnership fails — genetic variety has narrowed past the point where their composite mind can hold together.', kind: 'collapse' });
-        return events;
-      }
-    }
+    this._relaxDimensions(fx, climate, pop, count);
 
-    // ---- Collapse (Dark Age) ----
-    const catastrophic = count < cfg.collapseAbsPop ||
-      (!climate.isStable && count < this.peakPop * cfg.collapsePeakFrac && this.tierIdx >= 1);
-    if (this._collapseCd <= 0 && catastrophic && this.tierIdx >= 1) {
-      // Some adaptations let a civilisation ride out what would end another.
-      if (fx.collapseResist > 0 && RNG() < fx.collapseResist) {
-        this._collapseCd = Math.floor(cfg.collapseCooldown / 2);
-        events.push({ text: 'The age should have ended here — but this civilisation held.', kind: 'tierup' });
-        return events;
+    // ---- The four ways to fall ----
+    if (this._checkCrises(events, fx, climate, pop, count, cfg)) return events;
+
+    // ---- Stagnation state (evaluated before growth) ----
+    const wasStagnant = this.stagnant;
+    this.stagnant = this.innovation < 0.18;
+    if (this.stagnant) {
+      this._stagnantFor++;
+      if (!wasStagnant && this._crisisCd <= 0) {
+        this.crises.stagnation++;
+        this._crisisCd = 400;
+        events.push({
+          text: 'Stagnation — no genuinely new idea has appeared in living memory. The civilisation knows a great deal and discovers nothing.',
+          kind: 'crisis',
+        });
       }
-      const fromAge = this.tier.name;
-      this.knowledge *= clamp(cfg.collapseKeep + fx.knowledgeKeepBonus, 0, 0.85);
-      this.collapses++;
-      this._collapseCd = cfg.collapseCooldown;
-      this._lastTierIdx = this.tierIdx;
-      events.push({
-        text: `Collapse — a Chaotic Era shatters the ${fromAge} civilisation into a Dark Age (collapse #${this.collapses}).`,
-        kind: 'collapse',
-      });
-      return events;
-    }
+    } else this._stagnantFor = 0;
 
     // ---- Knowledge growth ----
+    // Innovation gates the rate: a society that cannot generate new ideas
+    // barely moves, however much it already knows.
     const popFactor = clamp(count / 200, 0.1, 1.6);
-    const prodFactor = 0.2 + 0.8 * climate.productivity;   // science needs surplus
-    const stableFactor = climate.isStable ? 1 : 0.10;      // near-halt through chaos
+    const prodFactor = 0.2 + 0.8 * climate.productivity;
+    const stableFactor = climate.isStable ? 1 : 0.10;
+    // Below the stagnation floor, knowledge genuinely stops: a society with no
+    // new ideas does not slowly advance, it sits still.
+    const innovFactor = this.stagnant ? 0.02 : (0.12 + 0.88 * this.innovation);
     this.knowledge += cfg.growthRate * popFactor * prodFactor * stableFactor
-      * this.memoryBonus * fx.knowledgeGrowthMult;
+      * innovFactor * this.memoryBonus * fx.knowledgeGrowthMult;
 
-    // slow bleed if the population is too small to maintain its knowledge
     if (count < cfg.awakenPop * 0.4) this.knowledge = Math.max(0, this.knowledge - cfg.decayLowPop);
 
-    // ---- Age transitions ----
+    // ---- Ages ----
     const idx = this.tierIdx;
     if (idx > this._lastTierIdx) {
       for (let i = this._lastTierIdx + 1; i <= idx; i++) {
         events.push({ text: `The civilisation reaches ${this.tiers[i].name}.`, kind: 'tierup' });
       }
       this._lastTierIdx = idx;
-    } else if (idx < this._lastTierIdx) {
-      this._lastTierIdx = idx;
-    }
+    } else if (idx < this._lastTierIdx) this._lastTierIdx = idx;
     if (idx > this.peakTierIdx) this.peakTierIdx = idx;
 
-    // ---- Pinnacle (legendary, once) ----
     if (idx >= this.tiers.length - 1 && !this.transcended) {
       this.transcended = true;
       const ord = ordinal(this.collapses + 1);
@@ -179,12 +199,135 @@ class Civilization {
     return events;
   }
 
+  _resetDimensions(fx) {
+    this.innovation = clamp(DIM_BASE.innovation + fx.innovation, 0.02, 1);
+    this.cohesion = clamp(DIM_BASE.cohesion + fx.cohesion, 0.02, 1);
+    this.adaptability = clamp(DIM_BASE.adaptability + fx.adaptability, 0.02, 1);
+  }
+
+  // Dimensions drift toward the target their adaptations and circumstances set.
+  _relaxDimensions(fx, climate, pop, count) {
+    const strain = climate.isStable ? 0 : 0.14;   // hardship frays a society
+    const crowd = count < CONFIG.civ.awakenPop * 0.5 ? 0.10 : 0;
+    const variety = clamp(pop.diversity('optimalTemp') / 22, 0, 1); // variety feeds ideas
+
+    const tInnov = clamp(DIM_BASE.innovation + fx.innovation + 0.15 * variety
+      - this._techOrthodoxy(), 0.02, 1);
+    const tCohes = clamp(DIM_BASE.cohesion + fx.cohesion + this._institutions - strain - crowd, 0.02, 1);
+    const tAdapt = clamp(DIM_BASE.adaptability + fx.adaptability + 0.12 * variety, 0.02, 1);
+
+    const k = 0.0025;
+    this.innovation += (tInnov - this.innovation) * k;
+    this.cohesion += (tCohes - this.cohesion) * k;
+    this.adaptability += (tAdapt - this.adaptability) * k;
+  }
+
+  // The higher a civilisation climbs without falling, the more entrenched its
+  // orthodoxy — a gentle drag that makes late-stage stagnation a real risk.
+  _techOrthodoxy() { return clamp(this.tierIdx / (this.tiers.length - 1) * 0.30, 0, 0.30); }
+
+  _checkCrises(events, fx, climate, pop, count, cfg) {
+    // ── Signature vulnerabilities: the specific way THIS species breaks. ──
+    if (this._crisisCd <= 0 && this.tierIdx >= 1) {
+      if (fx.unityDependent && count < cfg.awakenPop * 0.45) {
+        this.cohesion = clamp(this.cohesion - 0.28, 0.02, 1);
+        this._crisisCd = 500;
+        events.push({
+          text: 'Scattered too thin — a mind that needs its members close together is coming apart.',
+          kind: 'crisis',
+        });
+        return false;
+      }
+      if (fx.lightDependent && climate.flux < 0.0016) {
+        this.knowledge *= 0.94;
+        this.adaptability = clamp(this.adaptability - 0.12, 0.02, 1);
+        this._crisisCd = 500;
+        events.push({
+          text: 'The long night starves them — a species that eats light has nothing to eat.',
+          kind: 'crisis',
+        });
+        return false;
+      }
+    }
+
+    // ── Schism: cohesion gives way. ──
+    if (this.cohesion > 0.34) this._schismArmed = true;   // re-arm once healed
+    if (this._schismArmed && this._crisisCd <= 0 && this.cohesion < 0.14 && this.tierIdx >= 1) {
+      this.crises.schism++;
+      this.knowledge *= 0.55;
+      // The fracture itself resets the grievance: survivors of a schism are, for
+      // a while, a smaller and more united people.
+      this.cohesion = clamp(this.cohesion + 0.45, 0.02, 1);
+      this._institutions = Math.min(this._institutions + 0.13, 0.5);
+      this._schismArmed = false;
+      this._crisisCd = 900;
+      this._lastTierIdx = this.tierIdx;
+      events.push({
+        text: 'Schism — the society tears itself apart. Old grievances no one could let go of finally outweighed what they still had in common.',
+        kind: 'crisis',
+      });
+      return true;
+    }
+
+    // ── Shock: the world changed faster than they could. ──
+    if (this._crisisCd <= 0 && this._shockTimer > 0 && !climate.isStable
+        && this.adaptability < 0.22 && this.tierIdx >= 1) {
+      this.crises.shock++;
+      this.knowledge *= 0.45;
+      this._crisisCd = 600;
+      this._lastTierIdx = this.tierIdx;
+      events.push({
+        text: 'Shock — the era turned before they could respond. Their plans assumed a world that no longer exists.',
+        kind: 'crisis',
+      });
+      return true;
+    }
+
+    // ── Symbiosis failure ──
+    if (fx.needsDiversity > 0 && pop.diversity('optimalTemp') < fx.needsDiversity
+        && this.tierIdx >= 1 && this._collapseCd <= 0) {
+      this.knowledge *= cfg.collapseKeep;
+      this.collapses++;
+      this._collapseCd = cfg.collapseCooldown;
+      this._lastTierIdx = this.tierIdx;
+      events.push({
+        text: 'The partnership fails — genetic variety has narrowed past the point where their composite mind can hold together.',
+        kind: 'collapse',
+      });
+      return true;
+    }
+
+    // ── Collapse: the climate simply killed enough of them. ──
+    const catastrophic = count < cfg.collapseAbsPop ||
+      (!climate.isStable && count < this.peakPop * cfg.collapsePeakFrac && this.tierIdx >= 1);
+    if (this._collapseCd <= 0 && catastrophic && this.tierIdx >= 1) {
+      if (fx.collapseResist > 0 && RNG() < fx.collapseResist) {
+        this._collapseCd = Math.floor(cfg.collapseCooldown / 2);
+        events.push({ text: 'The age should have ended here — but this civilisation held.', kind: 'tierup' });
+        return true;
+      }
+      const fromAge = this.tier.name;
+      this.knowledge *= clamp(cfg.collapseKeep + fx.knowledgeKeepBonus, 0, 0.85);
+      this.collapses++;
+      this._collapseCd = cfg.collapseCooldown;
+      this._lastTierIdx = this.tierIdx;
+      events.push({
+        text: `Collapse — a Chaotic Era shatters the ${fromAge} civilisation into a Dark Age (collapse #${this.collapses}).`,
+        kind: 'collapse',
+      });
+      return true;
+    }
+    return false;
+  }
+
   // ---- God interventions ----
   giftKnowledge(amount) { this.knowledge += amount; }
   burnLibrary(frac = 0.7) {
     this.knowledge *= (1 - frac);
     if (this._lastTierIdx > this.tierIdx) this._lastTierIdx = this.tierIdx;
   }
+  inspire() { this.innovation = clamp(this.innovation + 0.3, 0, 1); }
+  reconcile() { this.cohesion = clamp(this.cohesion + 0.3, 0, 1); }
 }
 
 function ordinal(n) {

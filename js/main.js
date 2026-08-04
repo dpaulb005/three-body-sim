@@ -15,9 +15,11 @@
   // expose for tinkering in the console
   window.DEMIURGE = { world, renderer, ui, CONFIG };
 
-  // Start on the flagship chaotic scenario.
-  const startIndex = PRESETS.findIndex(p => p.name.startsWith('Trisolaris'));
-  ui.loadPreset(startIndex >= 0 ? startIndex : 0);
+  // A shared link fully specifies its world; otherwise start on Trisolaris.
+  if (!ui.editor.applyFromURL()) {
+    const startIndex = PRESETS.findIndex(p => p.name.startsWith('Trisolaris'));
+    ui.loadPreset(startIndex >= 0 ? startIndex : 0);
+  }
 
   let textAccum = 0;
 
@@ -34,6 +36,7 @@
       ui.updateHUD();
       ui.updateCiv();
       ui.updateAdaptations();
+      ui.updateDossier();
       ui.updateReadout();
       ui.updateLog();
     }

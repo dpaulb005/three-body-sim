@@ -98,7 +98,7 @@
     <nav class="tabs" id="tabs">
       <button data-tab="cosmos" class="active">Cosmos</button>
       <button data-tab="life">Life</button>
-      <button data-tab="adapt">Traits</button>
+      <button data-tab="adapt">World</button>
       <button data-tab="civ">Civ</button>
       <button data-tab="log">Chronicle</button>
     </nav>
@@ -218,19 +218,33 @@
         </div>
       </section>
 
-      <!-- ───── Adaptations ───── -->
+      <!-- ───── World / Species ───── -->
       <section class="pane" data-pane="adapt">
         <div class="block">
-          <h3>World</h3>
-          <div id="world-profile" class="readout"></div>
+          <h3>Species</h3>
+          <div id="dossier"></div>
         </div>
+
+        <div class="block">
+          <h3>Shape this world <span class="hint-inline">applies live</span></h3>
+          <div class="segmented" id="hydro"></div>
+          <div id="world-fields"></div>
+          <label class="check"><input type="checkbox" id="in-tidal" /> Tidally locked</label>
+          <div class="btn-row" style="margin-top:12px">
+            <button id="btn-randomise" class="btn">Randomise world</button>
+            <button id="btn-share" class="btn primary">Copy share link</button>
+          </div>
+          <p class="note" id="share-note"></p>
+        </div>
+
         <div class="block">
           <h3>Divergent evolution</h3>
           <div id="adapt-list" class="adapt-list"></div>
         </div>
+
         <div class="block">
           <h3>Under pressure</h3>
-          <p class="note">Paths this world is currently pushing life toward. Only a few can ever emerge, and rivals in the same category exclude each other.</p>
+          <p class="note">Paths this world is pushing life toward. Only four can ever emerge, and rivals in a category exclude each other.</p>
           <div id="adapt-pressure" class="adapt-list"></div>
         </div>
       </section>
@@ -243,6 +257,10 @@
           <div class="civ-prog"><i id="civ-prog-fill"></i></div>
         </div>
         <div class="block">
+          <h3>Character</h3>
+          <div id="civ-dims" class="readout"></div>
+        </div>
+        <div class="block">
           <h3>Record</h3>
           <div id="civ-facts" class="readout"></div>
         </div>
@@ -251,6 +269,10 @@
           <div class="btn-row">
             <button id="btn-gift" class="btn">Gift insight</button>
             <button id="btn-burn" class="btn danger">Burn libraries</button>
+          </div>
+          <div class="btn-row" style="margin-top:8px">
+            <button id="btn-inspire" class="btn">Inspire</button>
+            <button id="btn-reconcile" class="btn">Reconcile</button>
           </div>
         </div>
       </section>
@@ -288,9 +310,11 @@
 <script src="js/adaptations.js"></script>
 <script src="js/evolution.js"></script>
 <script src="js/civilization.js"></script>
+<script src="js/species.js"></script>
 <script src="js/presets.js"></script>
 <script src="js/world.js"></script>
 <script src="js/render.js"></script>
+<script src="js/worldeditor.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/ads.js"></script>

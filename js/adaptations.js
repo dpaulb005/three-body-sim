@@ -1,179 +1,288 @@
 /*
- * adaptations.js — Divergent evolutionary paths.
+ * adaptations.js — Divergent evolutionary paths, and what each one costs.
  *
- * The point of this file is that an adaptation is never decoration. Each one:
+ * The governing idea: evolution does not produce perfection. Selection favours
+ * whatever improves reproductive success in *this* environment, and every such
+ * trait is paid for somewhere else. A species that is extraordinary at
+ * surviving catastrophe is usually mediocre at inventing; one that never
+ * forgets is usually bad at forgiving.
  *
- *   1. is GATED on the world actually having been a certain way — measured over
- *      time from the Signature, not from a one-off dice roll at world creation;
- *   2. accumulates PRESSURE while those conditions hold, so it takes real time
- *      and can stall if the world changes character;
- *   3. carries MECHANICAL EFFECTS that change how the simulation runs
- *      afterwards.
+ * So every adaptation here carries BOTH:
  *
- * That is the same contract dormancy already had — a chaotic sky selects for
- * dehydration because dehydration genuinely helps — extended to seventeen more
- * ways of being alive. A world that is merely *hot* and a world that is hot,
- * dark, and irradiated will not produce the same species.
+ *   boon  — what it makes the species extraordinary at, and
+ *   cost  — the capability it permanently gives up for it,
  *
- * Adaptations compete: only `maxAdaptations` can ever emerge on one world, and
- * members of the same `group` are mutually exclusive, so no run collects them
- * all. Two identical star systems can still diverge, because emergence is
- * probabilistic once the gate is open.
+ * expressed not as flavour text but as pushes on four measurable civilisation
+ * dimensions:
+ *
+ *   knowledge     what they have worked out (accumulates, is lost in collapses)
+ *   innovation    the rate at which genuinely new ideas appear
+ *   cohesion      whether the society holds together under strain
+ *   adaptability  how well they cope when conditions change suddenly
+ *
+ * A civilisation can die from a shortfall in any of the last three, not just
+ * from the climate. Perfect recall breeds grudges and shatters cohesion.
+ * Inherited memory makes children born knowledgeable but freezes innovation.
+ * Slow, near-perfect thought plans centuries ahead and is destroyed by a change
+ * it did not see coming.
+ *
+ * Gates are measured from the world's Signature over time, so an adaptation is
+ * a response to a *regime*, never to a moment.
  */
 
-// Neutral effect baseline. Every adaptation states only what it changes.
+// Neutral baseline. Every adaptation states only what it changes.
 function baseEffects() {
   return {
     // — biology —
-    intelUpkeepMult: 1,     // cost of carrying a brain
-    intelReproTaxMult: 1,   // penalty of long childhoods
+    intelUpkeepMult: 1,
+    intelReproTaxMult: 1,
     reproMult: 1,
     deathMult: 1,
-    stressRelief: 0,        // extra 0..1 shielding from thermal stress
-    dormancyDrainMult: 1,   // energy burn while dormant
-    redundancy: 0,          // 0..1 chance a lethal event is survived
-    lightProductivity: 0,   // 0..1 blend toward flux-driven, not temp-driven, food
+    stressRelief: 0,
+    dormancyDrainMult: 1,
+    redundancy: 0,          // 0..1 chance a lethal event costs a part, not a life
+    lightProductivity: 0,   // 0..1 blend toward flux-driven food
+    darkPenalty: 0,         // extra suffering when the sky goes dark
     mutationMult: 1,
-    // — civilisation —
-    knowledgeKeepBonus: 0,  // added to the fraction surviving a collapse
+    upkeepMult: 1,          // bodily cost of simply existing
+
+    // — civilisation dimensions (targets these traits pull toward) —
+    innovation: 0,
+    cohesion: 0,
+    adaptability: 0,
+
+    // — civilisation mechanics —
+    knowledgeKeepBonus: 0,
     knowledgeGrowthMult: 1,
-    awakenIntelDelta: 0,    // shifts the sapience threshold
-    collapseResist: 0,      // 0..1 chance a collapse is shrugged off
-    memoryAdd: 0,           // extra rebuild speed
-    needsDiversity: 0,      // genetic diversity floor; below it, the whole thing fails
+    awakenIntelDelta: 0,
+    collapseResist: 0,
+    memoryAdd: 0,
+    needsDiversity: 0,
+
+    // — signature vulnerabilities —
+    emDependent: false,     // coordination collapses under radiation spikes
+    lightDependent: false,  // starves in a long night
+    unityDependent: false,  // a shared mind fails when scattered
   };
 }
 
-// gate(sig, prof) returns 0..1 — how hard this world is pushing this way.
-// Anything at or below 0 never emerges.
+/*
+ * Each entry:
+ *   gate(sig, prof, ctx) -> 0..1  how hard this world pushes this way
+ *   boon / cost                   the tradeoff, in plain language
+ *   effects                       the mechanical consequences of both halves
+ */
 const ADAPTATIONS = [
   {
     id: 'distributed', name: 'Distributed Consciousness', group: 'selfhood',
-    blurb: 'Mind spread across many bodies. Losing one is losing a finger, not dying — but nothing about them is an individual.',
+    blurb: 'Mind spread across many bodies. Losing one is losing a finger, not dying.',
+    boon: 'Extraordinarily resilient — most lethal events cost a body, not a life.',
+    cost: 'No decision is quick. Consensus across a scattered self is slow, so sudden change is met sluggishly, and there is no individual to speak for the whole.',
     gate: (s) => Math.min(s.chaos * 1.3, s.tempVolatility / 30),
-    effects: { redundancy: 0.45, reproMult: 0.75, knowledgeGrowthMult: 1.1 },
+    effects: { redundancy: 0.45, reproMult: 0.75, adaptability: -0.30, cohesion: 0.12,
+               innovation: -0.10, unityDependent: true },
   },
   {
     id: 'reversible', name: 'Reversible Intelligence', group: 'brain',
-    blurb: 'Nervous tissue is grown in abundance and reabsorbed in famine. They lapse into animals for decades, then regrow their minds from stored tissue.',
+    blurb: 'Nervous tissue grown in abundance and reabsorbed in famine.',
+    boon: 'A brain that costs almost nothing when it cannot be afforded — they simply put it away.',
+    cost: 'Each descent into animality loses the thread. Knowledge accumulates in fits and starts, and continuity of thought is the price.',
     gate: (s) => (s.stableFrac > 0.15 && s.stableFrac < 0.8) ? clamp(s.eraChurn / 1.1, 0, 1) : 0,
-    effects: { intelUpkeepMult: 0.4, knowledgeGrowthMult: 0.85, knowledgeKeepBonus: 0.08 },
+    effects: { intelUpkeepMult: 0.4, knowledgeGrowthMult: 0.85, knowledgeKeepBonus: 0.08,
+               innovation: -0.15, adaptability: 0.2 },
   },
   {
-    id: 'biostorage', name: 'Biological Data Storage', group: 'memory',
-    blurb: 'Knowledge is encoded into heritable molecules. Parents pass understanding directly to offspring; the libraries are alive and history is inherited, not taught.',
+    id: 'biostorage', name: 'Inherited Memory', group: 'memory',
+    blurb: 'Knowledge encoded into heritable molecules; the libraries are alive.',
+    boon: 'Children are born already knowing. Almost nothing is lost when a civilisation falls.',
+    cost: 'The old ideas are born again too. Refuted theories and dead assumptions are inherited with everything else, and innovation grinds against them.',
     gate: (s) => clamp((s.eraChurn / 0.9) * 0.8 + (1 - s.stableFrac) * 0.4, 0, 1),
-    effects: { knowledgeKeepBonus: 0.34, memoryAdd: 0.5, knowledgeGrowthMult: 0.92 },
+    effects: { knowledgeKeepBonus: 0.34, memoryAdd: 0.5, knowledgeGrowthMult: 0.92,
+               innovation: -0.35, adaptability: -0.15, cohesion: 0.15 },
   },
   {
     id: 'slowthought', name: 'Time-Delayed Thinking', group: 'tempo',
-    blurb: 'Thought unfolds over months and is almost never wrong. They plan in centuries. To them, we would look recklessly impulsive.',
+    blurb: 'Thought unfolds over months and is almost never wrong.',
+    boon: 'Planning that spans centuries, and conclusions that are very nearly always correct.',
+    cost: 'A crisis is over before they have finished considering it. Anything that changes quickly defeats them entirely.',
     gate: (s, p) => Math.max(clamp(p.rotationOrbits / 0.9, 0, 1), s.stableFrac > 0.9 ? 0.55 : 0),
-    effects: { knowledgeGrowthMult: 1.55, reproMult: 0.7, collapseResist: 0.2, mutationMult: 0.7 },
+    effects: { knowledgeGrowthMult: 1.55, reproMult: 0.7, mutationMult: 0.7,
+               adaptability: -0.45, innovation: -0.1, cohesion: 0.2 },
   },
   {
     id: 'emcomm', name: 'Electromagnetic Communication', group: 'signal',
-    blurb: 'Organs that broadcast and receive. Cities think in unison, and lying is nearly impossible when everyone reads the field.',
+    blurb: 'Organs that broadcast and receive; cities think in unison.',
+    boon: 'Instant coordination across a whole world, and deception is nearly impossible.',
+    cost: 'Every thought is broadcast in the open. A stellar flare drowns the channel and the civilisation goes deaf, blind and leaderless at once.',
     gate: (s, p) => clamp(p.radiation * 1.6, 0, 1),
-    effects: { knowledgeGrowthMult: 1.4, awakenIntelDelta: -0.05, collapseResist: 0.12 },
+    effects: { knowledgeGrowthMult: 1.4, awakenIntelDelta: -0.05, cohesion: 0.3,
+               innovation: -0.12, emDependent: true },
   },
   {
-    id: 'hivemind', name: 'Seasonal Collective Mind', group: 'selfhood',
-    blurb: 'For part of every cycle their nervous systems fuse and the civilisation becomes one mind. Politics simply ceases to exist during merge season.',
+    id: 'hivemind', name: 'Collective Consciousness', group: 'selfhood',
+    blurb: 'Nervous systems fuse; the civilisation becomes one mind.',
+    boon: 'The reasoning power of an entire species applied to one problem at once.',
+    cost: 'There is no dissent to draw on, and no second opinion. One error propagates through everyone, and scattering the population severs the mind itself.',
     gate: (s) => (s.stableFrac > 0.25 && s.stableFrac < 0.75) ? clamp(s.eraChurn / 1.0, 0, 1) * 0.9 : 0,
-    effects: { knowledgeGrowthMult: 1.7, collapseResist: 0.25, reproMult: 0.85, needsDiversity: 4 },
+    effects: { knowledgeGrowthMult: 1.7, reproMult: 0.85, needsDiversity: 4,
+               cohesion: 0.45, innovation: -0.40, adaptability: -0.2, unityDependent: true },
   },
   {
     id: 'programmable', name: 'Programmable Bodies', group: 'morphology',
-    blurb: 'No permanent organs. Wings when they must fly, gills when they must swim, more neural tissue when they must think. Flexibility beats specialisation.',
+    blurb: 'No permanent organs — wings, gills or extra neural tissue as needed.',
+    boon: 'At home in any environment. Almost nothing the world does can render them unfit.',
+    cost: 'Rebuilding a body is enormously expensive, and they are helpless while it happens.',
     gate: (s) => clamp(Math.min(s.tempVolatility / 26, s.chaos * 1.2), 0, 1),
-    effects: { stressRelief: 0.22, mutationMult: 1.6, reproMult: 0.85, deathMult: 0.85 },
+    effects: { stressRelief: 0.22, mutationMult: 1.6, reproMult: 0.85, deathMult: 0.85,
+               upkeepMult: 1.35, adaptability: 0.45, innovation: 0.1 },
   },
   {
     id: 'photosynth', name: 'Photosynthetic Intelligence', group: 'metabolism',
-    blurb: 'They eat light. Days pass motionless, metabolic needs are trivial, and their wars are fought over shade rather than food.',
+    blurb: 'They eat light. Days pass motionless.',
+    boon: 'Almost no need for food, and metabolic costs so low that famine barely touches them.',
+    cost: 'Power output is feeble — everything they do is slow — and a long night starves them outright.',
     gate: (s) => (s.fluxMean > 0.0055 && s.stableFrac > 0.5) ? clamp(s.fluxMean / 0.011, 0, 1) : 0,
-    effects: { lightProductivity: 0.65, intelUpkeepMult: 0.55, reproMult: 0.8, deathMult: 0.9 },
+    effects: { lightProductivity: 0.65, intelUpkeepMult: 0.55, reproMult: 0.8, deathMult: 0.9,
+               darkPenalty: 0.5, innovation: -0.15, adaptability: -0.2, lightDependent: true },
   },
   {
-    id: 'crystals', name: 'Memory Crystals', group: 'memory',
-    blurb: 'Memory is mineral, not neural. It can be cut out, handed over, installed. Education is not teaching — it is transfer.',
+    id: 'crystals', name: 'Crystal Memory', group: 'memory',
+    blurb: 'Memory is mineral. It can be cut out, handed over, installed.',
+    boon: 'Flawless recall, and knowledge that can be transferred whole rather than taught.',
+    cost: 'Nothing fades. Every grievance stays as sharp as the day it happened, so feuds never cool and reconciliation is close to impossible.',
     gate: (s, p) => (s.meanTempC < 6 || p.hydrosphere === 'ice')
       ? clamp((6 - s.meanTempC) / 30 + (p.hydrosphere === 'ice' ? 0.45 : 0), 0, 1) : 0,
-    effects: { knowledgeKeepBonus: 0.3, knowledgeGrowthMult: 1.25, memoryAdd: 0.35 },
+    effects: { knowledgeKeepBonus: 0.3, knowledgeGrowthMult: 1.25, memoryAdd: 0.35,
+               cohesion: -0.42, innovation: -0.2 },
   },
   {
     id: 'symbiotic', name: 'Symbiotic Intelligence', group: 'selfhood',
-    blurb: 'No single organism here is intelligent. Mind is what happens when several species cooperate — and it ends the moment one of them is lost.',
+    blurb: 'No single organism is intelligent; mind is what cooperation produces.',
+    boon: 'Several kinds of thinking at once, and sapience achieved far below the usual cost.',
+    cost: 'The mind is only as safe as its rarest partner. Lose one lineage and the whole intelligence goes out.',
     gate: (s) => (s.stableFrac > 0.4) ? clamp(s.stableFrac * 0.7, 0, 1) : 0,
-    effects: { awakenIntelDelta: -0.1, knowledgeGrowthMult: 1.3, needsDiversity: 7, deathMult: 1.1 },
+    effects: { awakenIntelDelta: -0.1, knowledgeGrowthMult: 1.3, needsDiversity: 7,
+               deathMult: 1.1, innovation: 0.25, adaptability: -0.15 },
   },
   {
     id: 'redundancy', name: 'Extreme Redundancy', group: 'morphology',
-    blurb: 'Every organ exists three times over, the genome keeps dozens of backups, and the brain rebuilds itself continuously. They are extraordinarily hard to kill.',
+    blurb: 'Every organ three times over; the genome keeps dozens of backups.',
+    boon: 'Extraordinarily hard to kill. Radiation, injury and famine are all survivable.',
+    cost: 'Maintaining three of everything demands an enormous body and an enormous appetite.',
     gate: (s, p) => clamp(p.radiation * 1.4 + s.chaos * 0.35, 0, 1),
-    effects: { deathMult: 0.55, redundancy: 0.25, reproMult: 0.8, intelUpkeepMult: 1.15 },
+    effects: { deathMult: 0.55, redundancy: 0.25, reproMult: 0.8, intelUpkeepMult: 1.15,
+               upkeepMult: 1.45, innovation: -0.1, adaptability: 0.1 },
   },
   {
     id: 'chemself', name: 'Chemical Personalities', group: 'brain',
-    blurb: 'Cognition is chosen. An individual becomes a mathematician, a soldier, an artist by rebalancing their own chemistry. Identity is a setting.',
+    blurb: 'Cognition is chosen — become a mathematician, a soldier, an artist at will.',
+    boon: 'Any mind the moment demands, with no need to raise a specialist for it.',
+    cost: 'Identity will not hold still. Commitments made by one self are not felt by the next, and trust is difficult to build.',
     gate: (s) => (s.stableFrac > 0.35) ? clamp(s.stableFrac * 0.55 + s.tempVolatility / 60, 0, 1) : 0,
-    effects: { knowledgeGrowthMult: 1.35, mutationMult: 1.25, reproMult: 0.92 },
+    effects: { knowledgeGrowthMult: 1.35, mutationMult: 1.25, reproMult: 0.92,
+               innovation: 0.3, cohesion: -0.28, adaptability: 0.2 },
   },
   {
     id: 'dreamers', name: 'Sleep Evolution', group: 'tempo',
-    blurb: 'Nine tenths of life is spent asleep, dreaming collectively. Their science advances almost entirely while nobody is awake.',
+    blurb: 'Nine tenths of life spent asleep, dreaming collectively.',
+    boon: 'Almost no exposure to danger, and problems solved in the dark without effort.',
+    cost: 'Very little gets done while awake, and a threat arriving during the long sleep meets no one at all.',
     gate: (s) => clamp(s.darkFrac * 2.2, 0, 1),
-    effects: { dormancyDrainMult: 0.45, knowledgeGrowthMult: 1.3, reproMult: 0.85, stressRelief: 0.1 },
+    effects: { dormancyDrainMult: 0.45, knowledgeGrowthMult: 1.3, reproMult: 0.85,
+               stressRelief: 0.1, adaptability: -0.3, innovation: 0.15 },
   },
   {
     id: 'empathic', name: 'Emotional Evolution', group: 'social',
-    blurb: 'Perfect empathy, wired in: to injure another is to feel it yourself. Crime never evolved here because it was never survivable.',
+    blurb: 'Perfect empathy, wired in: to injure another is to feel it yourself.',
+    boon: 'A society that does not fracture. Cooperation is automatic and crime never evolved.',
+    cost: 'Every loss is felt by everybody. Mass death is not a statistic here but a wound the whole species carries, and hard necessary choices are almost unmakeable.',
     gate: (s) => (s.stableFrac > 0.55) ? clamp((s.stableFrac - 0.55) * 2.1, 0, 1) : 0,
-    effects: { collapseResist: 0.35, knowledgeGrowthMult: 1.18, deathMult: 0.9 },
+    effects: { collapseResist: 0.35, knowledgeGrowthMult: 1.18, deathMult: 0.9,
+               cohesion: 0.5, adaptability: -0.15, innovation: -0.05 },
   },
   {
     id: 'topology', name: 'Four-Dimensional Spatial Sense', group: 'brain',
-    blurb: 'Raised under a sky whose motion has no closed solution, they simply see the shape of it. Topologies we need mathematics to approach are as obvious to them as a face.',
+    blurb: 'They simply see the shape of an orbit that has no closed solution.',
+    boon: 'Mathematics that we require centuries to formalise is, to them, obvious at a glance.',
+    cost: 'A mind built for structure is poor at everything unstructured. Their intuitions about other minds are famously bad.',
     gate: (s, p, ctx) => (ctx.sunCount >= 3) ? clamp(s.chaos * 1.25, 0, 1) : 0,
-    effects: { knowledgeGrowthMult: 1.45, collapseResist: 0.3, awakenIntelDelta: 0.04 },
+    effects: { knowledgeGrowthMult: 1.45, collapseResist: 0.3, awakenIntelDelta: 0.04,
+               innovation: 0.2, cohesion: -0.25 },
   },
   {
     id: 'quantum', name: 'Quantum Dormancy', group: 'metabolism',
-    blurb: 'Rather than resist a lethal era, they suspend almost all activity and hold their molecular structure intact for centuries — skipping catastrophes entirely.',
+    blurb: 'All activity suspended, molecular structure held intact for centuries.',
+    boon: 'They skip catastrophes entirely. An era that would end another species simply passes them by.',
+    cost: 'They wake into a world that has moved on without them, having contributed nothing and learned nothing in the interval.',
     gate: (s, p) => clamp(Math.max((s.maxTempC - 70) / 60, 0) + p.radiation * 0.8, 0, 1),
-    effects: { dormancyDrainMult: 0.12, stressRelief: 0.18, knowledgeKeepBonus: 0.12, reproMult: 0.9 },
+    effects: { dormancyDrainMult: 0.12, stressRelief: 0.18, knowledgeKeepBonus: 0.12,
+               reproMult: 0.9, innovation: -0.25, adaptability: 0.25 },
   },
   {
     id: 'predictive', name: 'Predictive Evolution', group: 'signal',
-    blurb: 'Enormous cognitive resources spent on patterns spanning millennia. They appear prophetic, though they are only extrapolating.',
+    blurb: 'Enormous resources spent on patterns spanning millennia.',
+    boon: 'They see what is coming decades out, and prepare for it while it is still theoretical.',
+    cost: 'The prediction is only as good as the regularity behind it. When the pattern breaks, their entire planning apparatus is worse than useless.',
     gate: (s, p, ctx) => (s.stableFrac > 0.8 && ctx.sunCount <= 2) ? clamp((s.stableFrac - 0.8) * 4, 0, 1) : 0,
-    effects: { knowledgeGrowthMult: 1.4, collapseResist: 0.3, intelUpkeepMult: 1.2 },
+    effects: { knowledgeGrowthMult: 1.4, collapseResist: 0.3, intelUpkeepMult: 1.2,
+               adaptability: -0.35, innovation: 0.1 },
   },
   {
     id: 'castes', name: 'Evolutionary Castes', group: 'morphology',
-    blurb: 'One life, several species. Each individual passes through explorer, builder, scientist and reproducer — a different body and a different mind at every stage.',
+    blurb: 'One life, several species: explorer, builder, scientist, reproducer.',
+    boon: 'A body and a brain purpose-built for each task, and no wasted effort at any stage.',
+    cost: 'No one holds the whole picture. Understanding is fragmented across life-stages that never meet as equals.',
     gate: (s) => clamp(s.eraChurn / 1.2 * 0.85, 0, 1),
-    effects: { reproMult: 1.25, knowledgeGrowthMult: 1.22, deathMult: 0.9, intelReproTaxMult: 0.7 },
+    effects: { reproMult: 1.25, knowledgeGrowthMult: 1.22, deathMult: 0.9,
+               intelReproTaxMult: 0.7, cohesion: -0.2, innovation: 0.15 },
+  },
+
+  // ── Costs that are purely civilisational ──────────────────────────────
+  {
+    id: 'logic', name: 'Perfect Logic', group: 'brain',
+    blurb: 'Reasoning without error, and without intuition.',
+    boon: 'They never make a fallacious step, and never fool themselves.',
+    cost: 'They will not guess. A speculative leap with no evidence behind it is unavailable to them, and most real discoveries begin as exactly that.',
+    gate: (s) => (s.stableFrac > 0.94 && s.tempVolatility < 4)
+      ? clamp((s.stableFrac - 0.94) * 12, 0, 1) : 0,
+    effects: { knowledgeGrowthMult: 1.3, innovation: -0.45, adaptability: -0.2, cohesion: 0.1 },
+  },
+  {
+    id: 'telepathy', name: 'Telepathy', group: 'signal',
+    blurb: 'Thought is shared directly, whether or not it is finished.',
+    boon: 'Nothing is misunderstood and nothing can be hidden. Deception simply does not work.',
+    cost: 'No idea gets to be private while it is still half-formed and foolish, so few are ever pursued that far. Privacy, and with it a great deal of creativity, is gone.',
+    gate: (s, p) => (p.radiation > 0.25 && s.stableFrac > 0.5)
+      ? clamp(p.radiation * 0.9, 0, 1) : 0,
+    effects: { cohesion: 0.55, knowledgeGrowthMult: 1.2, innovation: -0.45, unityDependent: true },
+  },
+  {
+    id: 'longevity', name: 'Biological Immortality', group: 'tempo',
+    blurb: 'They do not age. Generations do not turn over.',
+    boon: 'Expertise accumulates in a single mind for thousands of years, and nothing is lost to death.',
+    cost: 'Nothing is lost to death — including the people at the top. Authority never vacates, orthodoxy never dies with its holders, and a society with everything to lose stops taking risks.',
+    gate: (s) => (s.stableFrac > 0.92) ? clamp((s.stableFrac - 0.92) * 8, 0, 1) : 0,
+    effects: { deathMult: 0.45, reproMult: 0.55, knowledgeGrowthMult: 1.25,
+               innovation: -0.5, adaptability: -0.3, cohesion: 0.15 },
   },
 ];
 
 const ADAPT_CONFIG = {
-  maxAdaptations: 4,     // no world collects them all
-  pressureRate: 0.00040, // progress per step at full pressure
-  minPressure: 0.30,     // below this the world simply is not pushing that way
-  chanceScale: 0.55,     // randomises which of several open gates actually fires
+  maxAdaptations: 4,
+  pressureRate: 0.00040,
+  minPressure: 0.30,
+  chanceScale: 0.55,
 };
 
 class AdaptationSet {
   constructor() { this.reset(); }
 
   reset() {
-    this.progress = {};     // id -> 0..1
-    this.emerged = [];      // ids, in order of emergence
+    this.progress = {};
+    this.emerged = [];
     this.effects = baseEffects();
-    // A per-world affinity, rolled once. Two worlds with identical climates
-    // still travel different evolutionary roads — which is the point.
+    // A per-world affinity, rolled once, so two worlds with identical climates
+    // still travel different evolutionary roads.
     this.affinity = {};
     for (const a of ADAPTATIONS) {
       this.progress[a.id] = 0;
@@ -184,8 +293,6 @@ class AdaptationSet {
   has(id) { return this.emerged.includes(id); }
   get list() { return this.emerged.map(id => ADAPTATIONS.find(a => a.id === id)); }
 
-  // The gates that are currently open but not yet realised — shown in the UI so
-  // the player can see what the world is pushing toward.
   pressures(sig, prof, ctx) {
     if (!sig.mature) return [];
     const usedGroups = new Set(this.list.map(a => a.group));
@@ -203,26 +310,26 @@ class AdaptationSet {
     if (this.emerged.length >= ADAPT_CONFIG.maxAdaptations) return events;
 
     for (const { a, p } of this.pressures(sig, prof, ctx)) {
-      // Randomised gain, so two identical worlds still diverge.
       const gain = ADAPT_CONFIG.pressureRate * p * this.affinity[a.id]
         * (1 - ADAPT_CONFIG.chanceScale + ADAPT_CONFIG.chanceScale * 2 * RNG());
       this.progress[a.id] = clamp(this.progress[a.id] + gain, 0, 1);
       if (this.progress[a.id] >= 1) {
         this.emerged.push(a.id);
         this._recompute();
-        events.push({ text: `Divergent evolution — ${a.name}. ${a.blurb}`, kind: 'adapt' });
-        break; // one at a time, so the chronicle reads clearly
+        events.push({
+          text: `Divergent evolution — ${a.name}. ${a.boon} The cost: ${a.cost}`,
+          kind: 'adapt',
+        });
+        break;
       }
     }
     return events;
   }
 
-  // God can force one directly.
   force(id) {
     if (this.has(id)) return null;
     const a = ADAPTATIONS.find(x => x.id === id);
     if (!a) return null;
-    // Forcing overrides exclusivity by displacing the rival in its group.
     const rival = this.list.find(x => x.group === a.group);
     if (rival) this.emerged.splice(this.emerged.indexOf(rival.id), 1);
     this.emerged.push(id);
@@ -231,18 +338,32 @@ class AdaptationSet {
     return a;
   }
 
+  remove(id) {
+    const i = this.emerged.indexOf(id);
+    if (i < 0) return;
+    this.emerged.splice(i, 1);
+    this.progress[id] = 0;
+    this._recompute();
+  }
+
   _recompute() {
     const e = baseEffects();
     for (const a of this.list) {
       for (const [k, v] of Object.entries(a.effects)) {
-        if (k.endsWith('Mult')) e[k] *= v;
+        if (typeof v === 'boolean') e[k] = e[k] || v;
+        else if (k.endsWith('Mult')) e[k] *= v;
         else if (k === 'needsDiversity') e[k] = Math.max(e[k], v);
         else e[k] += v;
       }
     }
-    // Keep the additive 0..1 quantities sane when several stack.
     for (const k of ['stressRelief', 'redundancy', 'collapseResist', 'lightProductivity']) {
       e[k] = clamp(e[k], 0, 0.85);
+    }
+    // Diminishing returns on the soft dimensions. Stacking three penalties
+    // should leave a species crippled, not identical to every other crippled
+    // species — so compress rather than simply sum.
+    for (const k of ['innovation', 'cohesion', 'adaptability']) {
+      e[k] = 0.62 * Math.tanh(e[k] / 0.62);
     }
     this.effects = e;
   }

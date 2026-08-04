@@ -247,13 +247,32 @@ class Renderer {
   _drawSurface() {
     const { ctx, w, h } = this.surface;
     const clim = this.world.climate;
-    // Sky graded by temperature, kept deliberately desaturated and dark so the
-    // strip reads like a photograph rather than a colour swatch.
+    const prof = this.world.profile;
+    // The sky is graded from the temperature life actually experiences, and
+    // each kind of world gets its own palette and scenery — a sub-glacial vent
+    // field should not look like an irradiated desert.
+    const t = clim.habitatTempC !== undefined ? clim.habitatTempC : clim.tempC;
+    const biome = this._biome(prof, clim);
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0.00, skyColor(clim.tempC, 0.46));
-    g.addColorStop(0.64, skyColor(clim.tempC, 1.00));
-    g.addColorStop(1.00, skyColor(clim.tempC, 0.34));
+    if (biome === 'subglacial') {
+      g.addColorStop(0.00, 'rgb(10, 18, 30)');
+      g.addColorStop(0.55, 'rgb(16, 34, 52)');
+      g.addColorStop(1.00, 'rgb(8, 14, 22)');
+    } else if (biome === 'ocean') {
+      g.addColorStop(0.00, skyColor(t, 0.55));
+      g.addColorStop(0.42, 'rgb(24, 62, 92)');
+      g.addColorStop(1.00, 'rgb(8, 26, 44)');
+    } else if (biome === 'irradiated') {
+      g.addColorStop(0.00, skyColor(t, 0.5));
+      g.addColorStop(0.60, skyColor(t, 1.05));
+      g.addColorStop(1.00, 'rgb(48, 26, 20)');
+    } else {
+      g.addColorStop(0.00, skyColor(t, 0.46));
+      g.addColorStop(0.64, skyColor(t, 1.00));
+      g.addColorStop(1.00, skyColor(t, 0.34));
+    }
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    this._drawScenery(ctx, w, h, biome, prof, clim);
 
     // suns in the sky
     const sys = this.world.system, planet = sys.planet;
@@ -281,28 +300,13 @@ class Renderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, h * 0.64 + 0.5); ctx.lineTo(w, h * 0.64 + 0.5); ctx.stroke();
 
-    // creatures
+    // creatures — drawn according to what they have become
     const pop = this.world.population;
+    const ad = this.world.adaptations;
     for (const c of pop.creatures) {
       const x = 8 + c.px * (w - 16);
       const y = h * 0.30 + c.py * (h * 0.62);
-      const r = 1.6 + norm('size', c.g.size) * 3.0;
-      if (c.dormant) {
-        // Dehydrated: a hollow, colourless husk.
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(225,228,238,0.40)'; ctx.lineWidth = 1;
-        ctx.stroke();
-      } else {
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = c.color; ctx.fill();
-        // A faint halo marks the clever ones — sapience spreading, quietly.
-        if (c.g.intelligence > 0.55) {
-          const a = clamp((c.g.intelligence - 0.55) / 0.45, 0, 1);
-          ctx.strokeStyle = `rgba(255,214,10,${(0.18 + 0.32 * a).toFixed(2)})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(x, y, r + 2.6, 0, Math.PI * 2); ctx.stroke();
-        }
-      }
+      this._drawCreature(ctx, c, x, y, ad);
     }
 
     // Era / temperature, set quietly over a soft scrim.
@@ -331,6 +335,166 @@ class Renderer {
       ctx.fillStyle = 'rgba(255,255,255,0.66)';
       const dark = civ.collapses ? `  ·  ${civ.collapses} dark age${civ.collapses === 1 ? '' : 's'}` : '';
       ctx.fillText(`knowledge ${fmt.int(civ.knowledge)}${dark}`, w - 12, h - 9);
+    }
+  }
+
+  // ── Biome + scenery ─────────────────────────────────────────────────────
+  // Which visual world this is. Derived from the profile, not stored, so an
+  // edited world changes its look immediately.
+  _biome(prof, clim) {
+    if (prof.geothermal > 0.3 && prof.hydrosphere === 'ice') return 'subglacial';
+    if (prof.hydrosphere === 'ocean') return 'ocean';
+    if (prof.hydrosphere === 'ice') return 'glacial';
+    if (prof.radiation > 0.45) return 'irradiated';
+    if (prof.tidalLocked) return 'twilight';
+    return 'terrestrial';
+  }
+
+  // Scenery is deterministic per biome so it does not shimmer between frames.
+  _drawScenery(ctx, w, h, biome, prof, clim) {
+    const rng = makeRNG(0x5CE1E + biome.length * 977);
+    const ground = h * 0.64;
+
+    if (biome === 'subglacial') {
+      // A ceiling of ice above, vents glowing on the floor below.
+      ctx.fillStyle = 'rgba(150, 200, 235, 0.14)';
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.lineTo(w, h * 0.20);
+      for (let x = w; x >= 0; x -= w / 16) {
+        ctx.lineTo(x, h * (0.14 + rng() * 0.10));
+      }
+      ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        const vx = rng() * w, vr = 14 + rng() * 26;
+        const gr = ctx.createRadialGradient(vx, h, 1, vx, h, vr * 2.2);
+        gr.addColorStop(0, 'rgba(255, 150, 70, 0.42)');
+        gr.addColorStop(0.5, 'rgba(255, 110, 50, 0.10)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gr;
+        ctx.beginPath(); ctx.arc(vx, h, vr * 2.2, Math.PI, 0); ctx.fill();
+      }
+      return;
+    }
+
+    if (biome === 'ocean') {
+      // Layered water with a bright surface far above.
+      ctx.fillStyle = 'rgba(180, 225, 255, 0.10)';
+      ctx.fillRect(0, 0, w, h * 0.06);
+      for (let i = 0; i < 22; i++) {
+        const bx = rng() * w, by = h * (0.1 + rng() * 0.85), br = 0.6 + rng() * 1.6;
+        ctx.fillStyle = `rgba(190, 240, 255, ${(0.05 + rng() * 0.12).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      }
+      return;
+    }
+
+    if (biome === 'glacial') {
+      ctx.fillStyle = 'rgba(220, 240, 255, 0.16)';
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += w / 9) {
+        ctx.lineTo(x, ground + (rng() - 0.5) * h * 0.14);
+      }
+      ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+      return;
+    }
+
+    if (biome === 'twilight') {
+      // A tidally locked world: burning limb one side, frozen the other, with
+      // the habitable ring in between.
+      const burn = ctx.createLinearGradient(0, 0, w, 0);
+      burn.addColorStop(0, 'rgba(255, 130, 60, 0.30)');
+      burn.addColorStop(0.34, 'rgba(255, 130, 60, 0)');
+      burn.addColorStop(0.68, 'rgba(120, 170, 255, 0)');
+      burn.addColorStop(1, 'rgba(120, 170, 255, 0.26)');
+      ctx.fillStyle = burn; ctx.fillRect(0, 0, w, h);
+      return;
+    }
+
+    if (biome === 'irradiated') {
+      // Dust and a hard, sterile horizon.
+      for (let i = 0; i < 26; i++) {
+        const dx = rng() * w, dy = ground + rng() * (h - ground);
+        ctx.fillStyle = `rgba(255, 200, 150, ${(0.04 + rng() * 0.08).toFixed(2)})`;
+        ctx.fillRect(dx, dy, 1 + rng() * 2, 1);
+      }
+      return;
+    }
+  }
+
+  // ── Creatures, drawn as what they have become ───────────────────────────
+  _drawCreature(ctx, c, x, y, ad) {
+    const r = 1.6 + norm('size', c.g.size) * 3.0
+      * (ad && ad.has('redundancy') ? 1.55 : 1);   // three of everything is bulky
+
+    if (c.dormant) {
+      // Quantum dormancy holds molecular structure: a faceted, crystalline husk
+      // rather than a shrivelled one.
+      if (ad && ad.has('quantum')) {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = i / 6 * Math.PI * 2 - Math.PI / 2;
+          const px = x + Math.cos(a) * (r + 1), py = y + Math.sin(a) * (r + 1);
+          i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(190, 225, 255, 0.55)'; ctx.lineWidth = 1; ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(225,228,238,0.40)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      return;
+    }
+
+    const col = (ad && ad.has('photosynth'))
+      ? 'hsl(96, 42%, 52%)'                     // they are chlorophyll green
+      : c.color;
+
+    if (ad && ad.has('distributed')) {
+      // One mind, several bodies: a small linked cluster moving together.
+      const n = 4, spread = r * 2.1;
+      ctx.strokeStyle = 'rgba(190, 200, 220, 0.30)'; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2 + c.px * 6;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(a) * spread, y + Math.sin(a) * spread);
+      }
+      ctx.stroke();
+      ctx.fillStyle = col;
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2 + c.px * 6;
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * spread, y + Math.sin(a) * spread, r * 0.62, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (ad && ad.has('photosynth')) {
+      // Broad, leaf-like: maximising area to the light.
+      ctx.save(); ctx.translate(x, y); ctx.rotate(c.px * 3);
+      ctx.beginPath(); ctx.ellipse(0, 0, r * 1.8, r * 0.75, 0, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill(); ctx.restore();
+    } else if (ad && ad.has('redundancy')) {
+      // Armoured, with a visible second shell.
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.strokeStyle = 'rgba(215, 220, 235, 0.45)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, r + 1.8, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill();
+    }
+
+    // Broadcast organs: a faint transmission ring.
+    if (ad && (ad.has('emcomm') || ad.has('telepathy'))) {
+      ctx.strokeStyle = 'rgba(120, 210, 255, 0.30)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(x, y, r + 4.2, 0, Math.PI * 2); ctx.stroke();
+    }
+    // Sapience.
+    if (c.g.intelligence > 0.55) {
+      const a = clamp((c.g.intelligence - 0.55) / 0.45, 0, 1);
+      ctx.strokeStyle = `rgba(255,214,10,${(0.18 + 0.32 * a).toFixed(2)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, r + 2.6, 0, Math.PI * 2); ctx.stroke();
     }
   }
 

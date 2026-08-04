@@ -133,7 +133,78 @@ class UI {
       this.world.log(`Cataclysm! ${killed} organisms wiped out.`, 'death');
     };
 
+    // ---- World editor ----
+    this.editor = new WorldEditor(this.world, this);
+
+    const hydro = this.$('hydro');
+    hydro.innerHTML = HYDRO.map(x =>
+      `<button data-h="${x.v}">${x.label}</button>`).join('');
+    hydro.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        this.editor.set('hydrosphere', btn.dataset.h);
+        this._syncEditor();
+      };
+    });
+
+    this.$('world-fields').innerHTML = WORLD_FIELDS.map(f => `
+      <div class="field">
+        <label for="wf-${f.key}">${f.label}</label>
+        <output id="wo-${f.key}"></output>
+        <input id="wf-${f.key}" type="range" min="${f.min}" max="${f.max}" step="${f.step}" />
+      </div>`).join('');
+    for (const f of WORLD_FIELDS) {
+      const el = this.$(`wf-${f.key}`);
+      el.title = f.hint;
+      el.oninput = (e) => {
+        this.editor.set(f.key, +e.target.value);
+        this._syncEditor();
+      };
+    }
+    this.$('in-tidal').onchange = (e) => {
+      this.editor.setTidalLock(e.target.checked);
+    };
+    this.$('btn-randomise').onclick = () => { this.editor.randomise(); this._syncEditor(); };
+    this.$('btn-share').onclick = async () => {
+      const url = this.editor.shareURL();
+      const note = this.$('share-note');
+      try {
+        await navigator.clipboard.writeText(url);
+        note.textContent = 'Link copied — it carries this exact world.';
+      } catch {
+        note.textContent = url;   // clipboard blocked: show it to copy by hand
+      }
+    };
+
+    // ---- Civilisation character interventions ----
+    this.$('btn-inspire').onclick = () => {
+      const c = this.world.civ;
+      if (!c.awakened) { this.world.log('There is no one to inspire.', 'info'); return; }
+      c.inspire();
+      this.world.log('A generation of heretics is born. Innovation surges.', 'tierup');
+    };
+    this.$('btn-reconcile').onclick = () => {
+      const c = this.world.civ;
+      if (!c.awakened) { this.world.log('There is no one to reconcile.', 'info'); return; }
+      c.reconcile();
+      this.world.log('Old grievances are set down at last. The society knits back together.', 'tierup');
+    };
+
     this.setPlayLabel(true);
+    this._syncEditor();
+  }
+
+  // Push profile values back into the editor controls.
+  _syncEditor() {
+    const p = this.world.profile;
+    for (const f of WORLD_FIELDS) {
+      const el = this.$(`wf-${f.key}`), out = this.$(`wo-${f.key}`);
+      if (!el) continue;
+      el.value = p[f.key];
+      out.textContent = f.pct ? fmt.pct(p[f.key]) : p[f.key].toFixed(2) + (f.unit || '');
+    }
+    this.$('hydro').querySelectorAll('button').forEach(b =>
+      b.classList.toggle('active', b.dataset.h === p.hydrosphere));
+    this.$('in-tidal').checked = !!p.tidalLocked;
   }
 
   loadPreset(i) {
@@ -145,6 +216,7 @@ class UI {
     this.renderer.selected = null;
     this.renderer._camInit = false;   // re-fit camera to new system
     this.refreshSelected();
+    if (this.editor) this._syncEditor();
   }
 
   reset() {
@@ -323,18 +395,46 @@ class UI {
       `${(civ.awakened ? civ.tierProgress * 100 : 0).toFixed(0)}%`;
 
     const row = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+    const dim = (k, v, col, warn) =>
+      `<div class="r-row"><span class="k">${k}</span>` +
+      `<span class="v"${warn ? ' style="color:var(--red)"' : ''}>${fmt.pct(v)}</span>` +
+      `<span class="bar"><i style="width:${(v * 100).toFixed(0)}%;background:${col}"></i></span></div>`;
+    this.$('civ-dims').innerHTML = civ.awakened
+      ? dim('Innovation', civ.innovation, 'var(--teal)', civ.innovation < 0.2) +
+        dim('Cohesion', civ.cohesion, 'var(--green)', civ.cohesion < 0.22) +
+        dim('Adaptability', civ.adaptability, 'var(--amber)', civ.adaptability < 0.22) +
+        (civ.stagnant ? `<div class="r-row"><span class="k" style="color:var(--red)">Stagnant — knowledge has stopped moving</span></div>` : '')
+      : `<p class="adapt-empty">No civilisation yet.</p>`;
     this.$('civ-facts').innerHTML =
       row('Zenith ever reached', civ.zenithName) +
       row('Dark Ages survived', civ.collapses) +
       row('Tech shielding', fmt.pct(civ.protection)) +
-      row('Rebuild speed', `${civ.memoryBonus.toFixed(1)}×`);
+      row('Rebuild speed', `${civ.memoryBonus.toFixed(1)}×`) +
+      row('Schisms', civ.crises.schism) +
+      row('Shocks', civ.crises.shock) +
+      row('Stagnations', civ.crises.stagnation);
+  }
+
+  // The species dossier: who these people are, read off their real numbers.
+  updateDossier() {
+    const w = this.world;
+    const d = speciesDossier(w);
+    const li = (x) => `<li>${x}</li>`;
+    this.$('dossier').innerHTML =
+      `<div class="dossier">
+        <h4>${d.name}</h4>
+        <p class="hab">${d.habitatLine}</p>
+        <p class="verdict">${d.verdict}</p>
+        ${d.strengths.length ? `<div class="sw good"><span>Extraordinary at</span><ul>${d.strengths.map(li).join('')}</ul></div>` : ''}
+        ${d.weaknesses.length ? `<div class="sw bad"><span>The price</span><ul>${d.weaknesses.map(li).join('')}</ul></div>` : ''}
+      </div>`;
   }
 
   // Which evolutionary roads this world has taken, and which it is pushing toward.
   updateAdaptations() {
     const w = this.world, prof = w.profile, sig = w.signature;
     const row = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
-    this.$('world-profile').innerHTML =
+    if (this.$('world-profile')) this.$('world-profile').innerHTML =
       row('Type', prof.label) +
       row('Gravity', `${prof.gravity.toFixed(2)}g`) +
       row('Surface', fmt.temp(w.climate.tempC)) +
