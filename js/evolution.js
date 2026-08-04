@@ -223,8 +223,8 @@ class Population {
         repro *= rate;
         if (RNG() < repro) {
           const child = new Creature(mutateGenome(c.g, this.mutationScale), c.gen + 1);
-          child.px = clamp(c.px + (RNG() - 0.5) * 0.06, 0.01, 0.99);
-          child.py = clamp(c.py + (RNG() - 0.5) * 0.06, 0.05, 0.95);
+          child.px = clamp(c.px + (RNG() - 0.5) * 0.30, 0.01, 0.99);
+          child.py = clamp(c.py + (RNG() - 0.5) * 0.22, 0.05, 0.95);
           c.energy -= 0.35;
           newborns.push(child);
           births++;

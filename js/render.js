@@ -8,6 +8,9 @@
  * flings suns apart stays on screen.
  */
 
+// Canvas text uses the same family as the interface.
+const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif';
+
 class Renderer {
   constructor(world) {
     this.world = world;
@@ -123,10 +126,10 @@ class Renderer {
         const p = this.worldToScreen(b.trail[i][0], b.trail[i][1]);
         if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
       }
-      ctx.strokeStyle = b.type === 'planet' ? 'rgba(120,200,255,0.35)'
-        : b.type === 'rogue' ? 'rgba(180,160,255,0.28)'
-          : 'rgba(255,220,150,0.22)';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = b.type === 'planet' ? 'rgba(120,200,255,0.28)'
+        : b.type === 'rogue' ? 'rgba(170,160,200,0.20)'
+          : 'rgba(255,220,150,0.15)';
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
 
@@ -166,19 +169,21 @@ class Renderer {
 
   _drawSun(ctx, p, r, b) {
     const col = starColor(b.mass);
-    const glow = r * 4.5;
-    const g = ctx.createRadialGradient(p.x, p.y, r * 0.4, p.x, p.y, glow);
-    g.addColorStop(0, col);
-    g.addColorStop(0.25, col.replace('hsl', 'hsla').replace(')', ',0.5)'));
-    g.addColorStop(1, 'rgba(0,0,0,0)');
+    // Restrained corona: a tight bright falloff plus a wide, very faint halo,
+    // so bright stars read as luminous without blowing out the frame.
+    const glow = r * 3.2;
+    const g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, glow);
+    g.addColorStop(0, starColorA(b.mass, 0.42));
+    g.addColorStop(0.35, starColorA(b.mass, 0.10));
+    g.addColorStop(1, starColorA(b.mass, 0));
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(p.x, p.y, glow, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
     if (r > 6 && b.name) {
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(b.name, p.x, p.y + r + 13);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '500 10.5px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(b.name, p.x, p.y + r + 15);
     }
   }
 
@@ -187,7 +192,7 @@ class Renderer {
     // base tinted by current climate
     const tint = tempColor(this.world.climate.tempC);
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = b.type === 'rogue' ? '#9a8cff' : tint; ctx.fill();
+    ctx.fillStyle = b.type === 'rogue' ? '#8e8aa8' : tint; ctx.fill();
     // day/night terminator: dark side away from brightest sun
     const sun = this._brightestSunAt(b);
     if (sun && b.type === 'planet') {
@@ -199,7 +204,7 @@ class Renderer {
       g.addColorStop(1, 'rgba(0,0,10,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.stroke();
   }
 
@@ -226,22 +231,28 @@ class Renderer {
   _scaleBar(ctx) {
     const { h } = this.cosmos;
     const unitPx = this.cam.scale;   // 1 sim unit
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(16, h - 18); ctx.lineTo(16 + unitPx, h - 18); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = '10px system-ui';
-    ctx.textAlign = 'left'; ctx.fillText('1 AU', 16, h - 24);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1;
+    const sbW = Math.min(unitPx, 140);
+    const sbX = this.cosmos.w - 22 - sbW, sbY = h - 46;
+    ctx.beginPath(); ctx.moveTo(sbX, sbY); ctx.lineTo(sbX + sbW, sbY);
+    ctx.moveTo(sbX, sbY - 3); ctx.lineTo(sbX, sbY + 3);
+    ctx.moveTo(sbX + sbW, sbY - 3); ctx.lineTo(sbX + sbW, sbY + 3);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(235,235,245,0.34)'; ctx.font = '500 9.5px ' + FONT;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${(sbW / unitPx).toFixed(sbW === unitPx ? 0 : 1)} AU`, sbX + sbW, sbY - 7);
   }
 
   // ---- surface / biosphere ----
   _drawSurface() {
     const { ctx, w, h } = this.surface;
     const clim = this.world.climate;
-    // sky gradient by temperature
-    const sky = tempColor(clim.tempC, -40, 70);
+    // Sky graded by temperature, kept deliberately desaturated and dark so the
+    // strip reads like a photograph rather than a colour swatch.
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, this._darken(sky, 0.45));
-    g.addColorStop(0.55, sky);
-    g.addColorStop(1, this._darken(sky, 0.7));
+    g.addColorStop(0.00, skyColor(clim.tempC, 0.46));
+    g.addColorStop(0.64, skyColor(clim.tempC, 1.00));
+    g.addColorStop(1.00, skyColor(clim.tempC, 0.34));
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
 
     // suns in the sky
@@ -251,72 +262,75 @@ class Renderer {
       for (const s of suns) {
         const d = Math.hypot(s.x - planet.x, s.y - planet.y);
         const flux = s.luminosity / (4 * Math.PI * (d * d + 0.05));
-        const sr = clamp(6 + flux * 4000, 4, 46);
+        const sr = clamp(5 + flux * 3000, 3, 30);
         // pseudo-position in sky from angle
         const ang = Math.atan2(s.y - planet.y, s.x - planet.x);
         const sx = w * (0.5 + 0.42 * Math.cos(ang));
         const sy = h * 0.30 + h * 0.16 * Math.sin(ang);
-        const gr = ctx.createRadialGradient(sx, sy, 1, sx, sy, sr * 2.4);
-        gr.addColorStop(0, starColor(s.mass));
-        gr.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sx, sy, sr * 2.4, 0, Math.PI * 2); ctx.fill();
+        const gr = ctx.createRadialGradient(sx, sy, 0.5, sx, sy, sr * 2.2);
+        gr.addColorStop(0, starColorA(s.mass, 0.85));
+        gr.addColorStop(0.3, starColorA(s.mass, 0.22));
+        gr.addColorStop(1, starColorA(s.mass, 0));
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sx, sy, sr * 2.2, 0, Math.PI * 2); ctx.fill();
       }
     }
 
     // ground line
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.fillRect(0, h * 0.62, w, h * 0.38);
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(0, h * 0.64, w, h * 0.36);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, h * 0.64 + 0.5); ctx.lineTo(w, h * 0.64 + 0.5); ctx.stroke();
 
     // creatures
     const pop = this.world.population;
     for (const c of pop.creatures) {
       const x = 8 + c.px * (w - 16);
       const y = h * 0.30 + c.py * (h * 0.62);
-      const r = 2 + norm('size', c.g.size) * 4.5;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      const r = 1.6 + norm('size', c.g.size) * 3.0;
       if (c.dormant) {
-        ctx.fillStyle = 'rgba(180,180,190,0.55)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([2, 2]);
-        ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+        // Dehydrated: a hollow, colourless husk.
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(225,228,238,0.40)'; ctx.lineWidth = 1;
+        ctx.stroke();
       } else {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fillStyle = c.color; ctx.fill();
-        // dormancy shown as a pale ring
-        if (c.g.dormancy > 0.5) {
-          ctx.strokeStyle = 'rgba(230,240,255,0.6)'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(x, y, r + 2, 0, Math.PI * 2); ctx.stroke();
-        }
-        // A bright halo marks the clever ones — you can watch sapience spread.
-        if (c.g.intelligence > 0.45) {
-          const a = clamp((c.g.intelligence - 0.45) / 0.55, 0, 1);
-          ctx.strokeStyle = `rgba(255,240,170,${(0.35 + 0.6 * a).toFixed(2)})`;
-          ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.arc(x, y, r + 3.5, 0, Math.PI * 2); ctx.stroke();
+        // A faint halo marks the clever ones — sapience spreading, quietly.
+        if (c.g.intelligence > 0.55) {
+          const a = clamp((c.g.intelligence - 0.55) / 0.45, 0, 1);
+          ctx.strokeStyle = `rgba(255,214,10,${(0.18 + 0.32 * a).toFixed(2)})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(x, y, r + 2.6, 0, Math.PI * 2); ctx.stroke();
         }
       }
     }
 
-    // era banner + temp
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(0, 0, w, 26);
-    ctx.textAlign = 'left'; ctx.font = 'bold 13px system-ui';
-    ctx.fillStyle = clim.isStable ? '#7dffb0' : '#ff9a7d';
-    ctx.fillText(clim.era, 10, 18);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#e8eeff';
-    ctx.fillText(`${fmt.temp(clim.tempC)}   ·   ${pop.count} alive`, w - 10, 18);
+    // Era / temperature, set quietly over a soft scrim.
+    const scrim = ctx.createLinearGradient(0, 0, 0, 34);
+    scrim.addColorStop(0, 'rgba(0,0,0,0.45)');
+    scrim.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = scrim; ctx.fillRect(0, 0, w, 34);
+    ctx.textAlign = 'left'; ctx.font = '600 11.5px ' + FONT;
+    ctx.fillStyle = clim.isStable ? '#32d74b' : '#ff9f0a';
+    ctx.fillText(clim.era.toUpperCase(), 12, 19);
+    ctx.textAlign = 'right'; ctx.font = '500 11.5px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.fillText(`${fmt.temp(clim.tempC)}  ·  ${pop.count} alive`, w - 12, 19);
 
     // Civilisation banner along the bottom once sapience has arisen.
     const civ = this.world.civ;
     if (civ.awakened) {
-      ctx.fillStyle = 'rgba(0,0,0,0.42)';
-      ctx.fillRect(0, h - 22, w, 22);
-      ctx.textAlign = 'left'; ctx.font = 'bold 12px system-ui';
-      ctx.fillStyle = '#ffe9a8';
-      ctx.fillText(`${civ.tier.icon} ${civ.tier.name}`, 10, h - 7);
-      ctx.textAlign = 'right'; ctx.font = '11px system-ui';
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      const s2 = ctx.createLinearGradient(0, h - 30, 0, h);
+      s2.addColorStop(0, 'rgba(0,0,0,0)');
+      s2.addColorStop(1, 'rgba(0,0,0,0.5)');
+      ctx.fillStyle = s2; ctx.fillRect(0, h - 30, w, 30);
+      ctx.textAlign = 'left'; ctx.font = '600 11.5px ' + FONT;
+      ctx.fillStyle = '#ffd60a';
+      ctx.fillText(civ.tier.name, 12, h - 9);
+      ctx.textAlign = 'right'; ctx.font = '500 11px ' + FONT;
+      ctx.fillStyle = 'rgba(255,255,255,0.66)';
       const dark = civ.collapses ? `  ·  ${civ.collapses} dark age${civ.collapses === 1 ? '' : 's'}` : '';
-      ctx.fillText(`knowledge ${fmt.int(civ.knowledge)}${dark}`, w - 10, h - 7);
+      ctx.fillText(`knowledge ${fmt.int(civ.knowledge)}${dark}`, w - 12, h - 9);
     }
   }
 
@@ -327,99 +341,123 @@ class Renderer {
   }
 
   // ---- graphs ----
+  // Two stacked charts sharing a time axis: climate on top, life below.
+  // Deliberately spare — thin strokes, one hairline grid, labels set small and
+  // quiet so the data reads first.
   _drawGraphs() {
     const { ctx, w, h } = this.graphs;
-    ctx.fillStyle = '#0a0c16'; ctx.fillRect(0, 0, w, h);
     const H = this.world.hist;
-    const pad = 6;
-    const topH = h * 0.5;   // temperature panel
-    const botY = h * 0.5, botH = h * 0.5;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#141416';
+    ctx.fillRect(0, 0, w, h);
 
-    // --- Temperature panel ---
-    // stable band shading
+    const padL = 10, padR = 44, padT = 20, gap = 16;
+    const plotW = w - padL - padR;
+    const chartH = (h - padT * 2 - gap) / 2;
+    const topY = padT;
+    const botY = padT + chartH + gap;
+
+    const label = (text, x, y, color, align = 'left') => {
+      ctx.font = '500 9.5px ' + FONT;
+      ctx.textAlign = align;
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    };
+
+    // ══ Climate ══
     const [slo, shi] = CONFIG.stableBandC;
-    const tmin = Math.min(-50, H.temp.min() - 5);
-    const tmax = Math.max(70, H.temp.max() + 5);
-    const ty = (v) => pad + (tmax - v) / (tmax - tmin) * (topH - 2 * pad);
-    ctx.fillStyle = 'rgba(90,220,140,0.10)';
-    ctx.fillRect(0, ty(shi), w, ty(slo) - ty(shi));
-    // zero line
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, ty(0)); ctx.lineTo(w, ty(0)); ctx.stroke();
+    const tmin = Math.min(-40, H.temp.min() - 5);
+    const tmax = Math.max(65, H.temp.max() + 5);
+    const ty = (v) => topY + (tmax - clamp(v, tmin, tmax)) / (tmax - tmin) * chartH;
 
-    this._line(ctx, H.eqTemp, w, tmin, tmax, ty, 'rgba(255,180,90,0.35)', 1);
-    this._line(ctx, H.temp, w, tmin, tmax, ty, '#ffb45a', 1.8);
-    // avg preferred temp of population (evolution tracking climate)
-    this._line(ctx, H.optimal, w, tmin, tmax, ty, '#7de3ff', 1.6);
+    // Habitable band: barely-there tint plus hairline edges, so it reads as a
+    // reference region rather than a coloured block behind the data.
+    const bandTop = ty(shi), bandBot = ty(slo);
+    ctx.fillStyle = 'rgba(50, 215, 75, 0.035)';
+    ctx.fillRect(padL, bandTop, plotW, Math.max(1, bandBot - bandTop));
+    ctx.strokeStyle = 'rgba(50, 215, 75, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(padL, bandTop + 0.5); ctx.lineTo(padL + plotW, bandTop + 0.5);
+    ctx.moveTo(padL, bandBot + 0.5); ctx.lineTo(padL + plotW, bandBot + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // frame + zero line
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, topY + chartH + 0.5); ctx.lineTo(padL + plotW, topY + chartH + 0.5);
+    if (tmin < 0 && tmax > 0) { ctx.moveTo(padL, ty(0) + 0.5); ctx.lineTo(padL + plotW, ty(0) + 0.5); }
+    ctx.stroke();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText('Surface temp', 6, 12);
-    ctx.fillStyle = '#7de3ff'; ctx.fillText('· preferred temp (evolving)', 78, 12);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
-    ctx.fillText(`${tmax.toFixed(0)}°`, w - 4, 12); ctx.fillText(`${tmin.toFixed(0)}°`, w - 4, topH - 4);
+    this._series(ctx, H.optimal, padL, plotW, ty, 'rgba(100, 210, 255, 0.85)', 1.25);
+    this._series(ctx, H.temp, padL, plotW, ty, '#ff9f0a', 1.6);
 
-    // divider
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.beginPath(); ctx.moveTo(0, botY); ctx.lineTo(w, botY); ctx.stroke();
+    label('CLIMATE', padL, topY - 7, 'rgba(235,235,245,0.34)');
+    label('surface', padL + 52, topY - 7, '#ff9f0a');
+    label('preferred', padL + 92, topY - 7, 'rgba(100,210,255,0.85)');
+    label(`${tmax.toFixed(0)}°`, w - padR + 6, topY + 7, 'rgba(235,235,245,0.34)');
+    label(`${tmin.toFixed(0)}°`, w - padR + 6, topY + chartH, 'rgba(235,235,245,0.34)');
 
-    // --- Population panel ---
-    const pmax = Math.max(50, H.pop.max() * 1.15);
-    const py = (v) => botY + pad + (pmax - v) / pmax * (botH - 2 * pad);
-    // capacity/flourish reference
-    this._areaLine(ctx, H.pop, w, 0, pmax, py, botY + botH - pad, 'rgba(125,255,176,0.85)', 'rgba(125,255,176,0.15)');
-    this._line(ctx, H.dormant, w, 0, pmax, py, 'rgba(180,190,210,0.9)', 1.4);
+    // ══ Life & knowledge ══
+    const pmax = Math.max(60, H.pop.max() * 1.15);
+    const py = (v) => botY + (pmax - clamp(v, 0, pmax)) / pmax * chartH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.beginPath();
+    ctx.moveTo(padL, botY + chartH + 0.5); ctx.lineTo(padL + plotW, botY + chartH + 0.5);
+    ctx.stroke();
 
-    // Knowledge, drawn on its own normalised scale so the rise-and-collapse
-    // sawtooth of civilisations is readable next to the population curve.
+    // population as a soft filled area
+    this._area(ctx, H.pop, padL, plotW, py, botY + chartH, 'rgba(50, 215, 75, 0.8)', 'rgba(50, 215, 75, 0.055)');
+    this._series(ctx, H.dormant, padL, plotW, py, 'rgba(235,235,245,0.34)', 1.1);
+
+    // knowledge on its own normalised scale — the sawtooth of civilisations
     const kmax = Math.max(200, H.knowledge.max() * 1.1);
-    const ky = (v) => botY + pad + (kmax - v) / kmax * (botH - 2 * pad);
-    this._line(ctx, H.knowledge, w, 0, kmax, ky, 'rgba(255,210,127,0.95)', 1.6);
-    // Average intelligence (0..1) mapped across the same panel.
-    const iy = (v) => botY + pad + (1 - v) * (botH - 2 * pad);
-    this._line(ctx, H.intelligence, w, 0, 1, iy, 'rgba(200,160,255,0.8)', 1.3);
+    const ky = (v) => botY + (kmax - clamp(v, 0, kmax)) / kmax * chartH;
+    this._series(ctx, H.knowledge, padL, plotW, ky, '#ffd60a', 1.4);
+    // intelligence 0..1 across the same band
+    const iy = (v) => botY + (1 - clamp(v, 0, 1)) * chartH;
+    this._series(ctx, H.intelligence, padL, plotW, iy, 'rgba(191, 90, 242, 0.8)', 1.1);
 
-    ctx.fillStyle = 'rgba(125,255,176,0.9)'; ctx.textAlign = 'left'; ctx.font = '10px system-ui';
-    ctx.fillText('Pop', 6, botY + 12);
-    ctx.fillStyle = 'rgba(180,190,210,0.9)'; ctx.fillText('· dormant', 30, botY + 12);
-    ctx.fillStyle = 'rgba(255,210,127,0.95)'; ctx.fillText('· knowledge', 86, botY + 12);
-    ctx.fillStyle = 'rgba(200,160,255,0.9)'; ctx.fillText('· intel', 152, botY + 12);
-    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
-    ctx.fillText(fmt.int(pmax), w - 4, botY + 12);
+    label('LIFE', padL, botY - 7, 'rgba(235,235,245,0.34)');
+    label('pop', padL + 32, botY - 7, 'rgba(50,215,75,0.9)');
+    label('dormant', padL + 58, botY - 7, 'rgba(235,235,245,0.4)');
+    label('knowledge', padL + 108, botY - 7, '#ffd60a');
+    label('intel', padL + 168, botY - 7, 'rgba(191,90,242,0.9)');
+    label(fmt.int(pmax), w - padR + 6, botY + 7, 'rgba(235,235,245,0.34)');
+    label('0', w - padR + 6, botY + chartH, 'rgba(235,235,245,0.34)');
   }
 
-  _line(ctx, hist, w, vmin, vmax, ymap, color, width) {
+  _series(ctx, hist, x0, plotW, ymap, color, width) {
     if (hist.n < 2) return;
+    const step = plotW / Math.max(1, hist.size - 1);
     ctx.beginPath();
-    const step = w / Math.max(1, hist.size - 1);
     let started = false;
     hist.forEach((v, i) => {
-      const x = i * step;
-      const y = ymap(clamp(v, vmin, vmax));
+      const x = x0 + i * step, y = ymap(v);
       if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
     });
-    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
   }
 
-  _areaLine(ctx, hist, w, vmin, vmax, ymap, baseY, stroke, fill) {
+  _area(ctx, hist, x0, plotW, ymap, baseY, stroke, fill) {
     if (hist.n < 2) return;
-    const step = w / Math.max(1, hist.size - 1);
+    const step = plotW / Math.max(1, hist.size - 1);
     ctx.beginPath();
-    let firstX = 0, started = false;
+    let firstX = x0, started = false;
     hist.forEach((v, i) => {
-      const x = i * step, y = ymap(v);
+      const x = x0 + i * step, y = ymap(v);
       if (!started) { firstX = x; ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
     });
-    // close to baseline for fill
-    const lastX = (hist.n - 1) * step;
+    const lastX = x0 + (hist.n - 1) * step;
     ctx.lineTo(lastX, baseY); ctx.lineTo(firstX, baseY); ctx.closePath();
     ctx.fillStyle = fill; ctx.fill();
-    // stroke top
-    ctx.beginPath(); started = false;
-    hist.forEach((v, i) => {
-      const x = i * step, y = ymap(v);
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-    });
-    ctx.strokeStyle = stroke; ctx.lineWidth = 1.6; ctx.stroke();
+    this._series(ctx, hist, x0, plotW, ymap, stroke, 1.4);
   }
 
   // hit-test a body near screen point (for selection)

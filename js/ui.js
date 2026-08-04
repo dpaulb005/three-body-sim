@@ -18,6 +18,16 @@ class UI {
   $(id) { return document.getElementById(id); }
 
   _build() {
+    // Tabs
+    document.querySelectorAll('#tabs button').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.pane').forEach(p =>
+          p.classList.toggle('active', p.dataset.pane === btn.dataset.tab));
+      };
+    });
+
     // Simulation
     this.$('btn-play').onclick = () => this.togglePlay();
     this.$('btn-reset').onclick = () => this.reset();
@@ -103,13 +113,13 @@ class UI {
       const c = this.world.civ;
       if (!c.awakened) { this.world.log('There is no one yet to receive the gift.', 'info'); return; }
       c.giftKnowledge(260);
-      this.world.log('💡 A divine insight accelerates the civilisation.', 'tierup');
+      this.world.log('A divine insight accelerates the civilisation.', 'tierup');
     };
     this.$('btn-burn').onclick = () => {
       const c = this.world.civ;
       if (!c.awakened) { this.world.log('There is no library to burn.', 'info'); return; }
       c.burnLibrary(0.7);
-      this.world.log('🔥 You burn their libraries. Centuries of knowledge turn to ash.', 'collapse');
+      this.world.log('You burn their libraries. Centuries of knowledge turn to ash.', 'collapse');
     };
 
     this.$('in-cata').oninput = (e) => {
@@ -148,7 +158,8 @@ class UI {
     this.setPlayLabel(this.world.running);
   }
   setPlayLabel(playing) {
-    this.$('btn-play').textContent = playing ? '⏸ Pause' : '▶ Play';
+    // The transport button swaps its glyph via a body-level class.
+    document.body.classList.toggle('paused', !playing);
   }
 
   // ---- selection panel ----
@@ -238,7 +249,7 @@ class UI {
     const w = this.world, c = w.climate, p = w.population;
     const eraEl = this.$('stat-era');
     eraEl.textContent = c.era.replace('Chaotic Era — ', '');
-    eraEl.style.color = c.isStable ? 'var(--good)' : 'var(--warn)';
+    eraEl.style.color = c.isStable ? 'var(--green)' : 'var(--orange)';
     this.$('stat-temp').textContent = fmt.temp(c.tempC);
     this.$('stat-pop').textContent = fmt.int(p.count);
 
@@ -246,11 +257,11 @@ class UI {
     const intel = p.avg('intelligence');
     const ie = this.$('stat-intel');
     ie.textContent = p.count ? fmt.pct(intel) : '—';
-    ie.style.color = intel >= CONFIG.civ.awakenIntel ? 'var(--good)'
-      : intel >= 0.35 ? 'var(--warn)' : 'var(--muted)';
+    ie.style.color = intel >= CONFIG.civ.awakenIntel ? 'var(--green)'
+      : intel >= 0.35 ? 'var(--orange)' : 'var(--ink-3)';
     const ae = this.$('stat-age');
     ae.textContent = civ.ageName;
-    ae.style.color = civ.awakened ? (civ.transcended ? 'var(--warn)' : 'var(--accent)') : 'var(--muted)';
+    ae.style.color = civ.awakened ? (civ.transcended ? 'var(--orange)' : 'var(--teal)') : 'var(--ink-3)';
     ae.style.fontSize = '12px';
     this.$('stat-collapse').textContent = fmt.int(civ.collapses);
     this.$('stat-suns').textContent = fmt.int(w.system.suns.length);
@@ -258,7 +269,7 @@ class UI {
     const drift = w.system.energyDrift();
     const de = this.$('stat-energy');
     de.textContent = (drift * 100).toFixed(2) + '%';
-    de.style.color = Math.abs(drift) < 0.02 ? 'var(--good)' : Math.abs(drift) < 0.1 ? 'var(--warn)' : 'var(--bad)';
+    de.style.color = Math.abs(drift) < 0.02 ? 'var(--green)' : Math.abs(drift) < 0.1 ? 'var(--orange)' : 'var(--red)';
 
     if (this.renderer.selected) this.refreshSelected();
   }
@@ -287,30 +298,30 @@ class UI {
       }
     } else {
       status.classList.remove('asleep');
-      status.innerHTML = `<b>${civ.tier.icon} ${civ.tier.name}</b> — knowledge ${fmt.int(civ.knowledge)}`;
+      status.innerHTML = `<b>${civ.tier.name}</b><br>Knowledge <span class="hl">${fmt.int(civ.knowledge)}</span>`;
     }
 
-    // Age track
+    // Age stepper
     const track = this.$('civ-track');
     const key = `${civ.tierIdx}|${civ.peakTierIdx}|${civ.awakened}`;
     if (this._trackKey !== key) {
       this._trackKey = key;
       track.innerHTML = civ.tiers.map((t, i) => {
-        const cls = [];
+        const cls = ['step'];
         if (civ.awakened && i === civ.tierIdx) cls.push('current');
         else if (i <= civ.peakTierIdx && civ.everAwakened) cls.push('reached');
-        if (i === civ.peakTierIdx && civ.peakTierIdx > 0) cls.push('peak');
-        return `<span class="${cls.join(' ')}" title="${t.name}">${t.icon}</span>`;
+        return `<div class="${cls.join(' ')}" title="${t.name}"><i class="dot"></i><span class="lbl">${t.short}</span></div>`;
       }).join('');
     }
     this.$('civ-prog-fill').style.width =
       `${(civ.awakened ? civ.tierProgress * 100 : 0).toFixed(0)}%`;
 
+    const row = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
     this.$('civ-facts').innerHTML =
-      `<span class="k">Zenith ever reached</span><span class="v">${civ.zenithName}</span>` +
-      `<span class="k">Dark Ages survived</span><span class="v">${civ.collapses}</span>` +
-      `<span class="k">Tech shielding</span><span class="v">${fmt.pct(civ.protection)}</span>` +
-      `<span class="k">Rebuild speed</span><span class="v">${civ.memoryBonus.toFixed(1)}×</span>`;
+      row('Zenith ever reached', civ.zenithName) +
+      row('Dark Ages survived', civ.collapses) +
+      row('Tech shielding', fmt.pct(civ.protection)) +
+      row('Rebuild speed', `${civ.memoryBonus.toFixed(1)}×`);
   }
 
   updateReadout() {
@@ -321,15 +332,16 @@ class UI {
       const v = p.avg(key);
       const frac = clamp((v - t.min) / (t.max - t.min), 0, 1);
       const col = key === 'optimalTemp' ? tempColor(v)
-        : key === 'dormancy' ? 'var(--accent)'
-          : key === 'intelligence' ? 'var(--warn)'
-            : 'var(--good)';
+        : key === 'dormancy' ? 'var(--teal)'
+          : key === 'intelligence' ? 'var(--amber)'
+            : 'var(--green)';
       const disp = key === 'optimalTemp' ? fmt.temp(v)
         : (key === 'dormancy' || key === 'intelligence') ? fmt.pct(v)
           : v.toFixed(1) + unit;
-      return `<span class="k">${t.label}</span><span class="v">${disp}</span>` +
-        `<span class="bar"><i style="width:${(frac * 100).toFixed(0)}%;background:${col}"></i></span>`;
+      return `<div class="r-row"><span class="k">${t.label}</span><span class="v">${disp}</span>` +
+        `<span class="bar"><i style="width:${(frac * 100).toFixed(0)}%;background:${col}"></i></span></div>`;
     };
+    const plain = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
     el.innerHTML =
       traitRow('intelligence') +
       traitRow('optimalTemp') +
@@ -337,9 +349,9 @@ class UI {
       traitRow('dormancy') +
       traitRow('size') +
       traitRow('metabolism') +
-      `<span class="k">Dormant now</span><span class="v">${p.dormantCount}</span>` +
-      `<span class="k">Genetic diversity</span><span class="v">${p.diversity('optimalTemp').toFixed(1)}°</span>` +
-      `<span class="k">Total births / deaths</span><span class="v">${fmt.int(p.totalBirths)} / ${fmt.int(p.totalDeaths)}</span>`;
+      plain('Dormant now', p.dormantCount) +
+      plain('Genetic diversity', `${p.diversity('optimalTemp').toFixed(1)}°`) +
+      plain('Births / deaths', `${fmt.int(p.totalBirths)} / ${fmt.int(p.totalDeaths)}`);
   }
 
   updateLog() {
@@ -350,6 +362,6 @@ class UI {
     if (this._logKey === key) return;
     this._logKey = key;
     el.innerHTML = evts.map(e =>
-      `<li class="${e.kind}"><b>${(e.t / (2 * Math.PI)).toFixed(1)}</b>${e.text}</li>`).join('');
+      `<li class="${e.kind}"><time>${(e.t / (2 * Math.PI)).toFixed(1)}</time><span>${e.text}</span></li>`).join('');
   }
 }

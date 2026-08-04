@@ -82,7 +82,7 @@ class Civilization {
         events.push({
           text: again
             ? `Sapience re-awakens (${this.collapses} collapses remembered) — the climb resumes, faster.`
-            : `★ THE AWAKENING — the species achieves sapience. A civilisation is born.`,
+            : `The Awakening — the species achieves sapience. A civilisation is born.`,
           kind: 'awaken',
         });
       }
@@ -116,7 +116,7 @@ class Civilization {
       this._collapseCd = cfg.collapseCooldown;
       this._lastTierIdx = this.tierIdx;
       events.push({
-        text: `☠ COLLAPSE — a Chaotic Era shatters the ${fromAge} civilisation into a Dark Age (collapse #${this.collapses}).`,
+        text: `Collapse — a Chaotic Era shatters the ${fromAge} civilisation into a Dark Age (collapse #${this.collapses}).`,
         kind: 'collapse',
       });
       return events;
@@ -135,7 +135,7 @@ class Civilization {
     const idx = this.tierIdx;
     if (idx > this._lastTierIdx) {
       for (let i = this._lastTierIdx + 1; i <= idx; i++) {
-        events.push({ text: `${this.tiers[i].icon} The civilisation enters the ${this.tiers[i].name}.`, kind: 'tierup' });
+        events.push({ text: `The civilisation reaches ${this.tiers[i].name}.`, kind: 'tierup' });
       }
       this._lastTierIdx = idx;
     } else if (idx < this._lastTierIdx) {
@@ -148,7 +148,7 @@ class Civilization {
       this.transcended = true;
       const ord = ordinal(this.collapses + 1);
       events.push({
-        text: `🌌 TRANSCENDENCE — after ${this.collapses} collapse${this.collapses === 1 ? '' : 's'}, the ${ord} civilisation masters the suns and launches an escape fleet out of the dying system.`,
+        text: `Transcendence — after ${this.collapses} collapse${this.collapses === 1 ? '' : 's'}, the ${ord} civilisation masters the suns and launches an escape fleet out of the dying system.`,
         kind: 'pinnacle',
       });
     }
