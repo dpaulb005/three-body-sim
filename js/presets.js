@@ -37,7 +37,8 @@ const PRESETS = [
       const vrel = Math.sqrt(CONFIG.G * (2 * m) / sep) / 2;
       s.add(_sun(-half, 0, 0, -vrel, m, 'Alpha'));
       s.add(_sun(half, 0, 0, vrel, m, 'Beta'));
-      const r = 6.2;
+      // Placed in this pair's actual habitable zone (see the flux model).
+      const r = 4.3;
       s.add(_planet(r, 0, 0, vCirc(2 * m, r)));
     },
   },
@@ -73,7 +74,10 @@ const PRESETS = [
         s.add(_sun(x, y, -Math.sin(a) * vt + (RNG() - 0.5) * 0.06,
           Math.cos(a) * vt + (RNG() - 0.5) * 0.06, m, ['Ay', 'Bee', 'Cee', 'Dee'][i]));
       }
-      const r = 9;
+      // Deliberately placed beyond the naive habitable zone: these suns tend to
+      // pair up and scorch anything close in, so the far orbit is the only one
+      // with any chance at all. Life here is a long shot.
+      const r = 8.5;
       s.add(_planet(r, 0, 0, vCirc(4 * m, r) * 0.9));
     },
   },

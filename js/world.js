@@ -10,6 +10,7 @@ class World {
     this.system = new NBodySystem();
     this.climate = new Climate();
     this.population = new Population();
+    this.civ = new Civilization();
 
     this.running = true;
     this.speed = 3;            // sim steps per animation frame
@@ -26,6 +27,8 @@ class World {
       optimal: new History(H),
       tolerance: new History(H),
       dormancy: new History(H),
+      intelligence: new History(H),
+      knowledge: new History(H),
     };
     this._sampleEvery = 2;
 
@@ -40,6 +43,7 @@ class World {
     this.system.clear();
     this.climate = new Climate();
     this.population.clear();
+    this.civ.reset();
     this.stepCount = 0;
     this.presetName = preset.name;
     for (const k in this.hist) this.hist[k] = new History(600);
@@ -69,7 +73,12 @@ class World {
     this.system.step(dt);
     this.system.updateTrails();
     this.climate.update(this.system, dt);
-    this.population.update(this.climate, dt);
+    // Technology shields the population from the climate — so an advanced
+    // civilisation literally changes the selection pressure acting on it.
+    this.population.update(this.climate, dt, this.civ.protection);
+    for (const e of this.civ.update(this.population, this.climate, dt)) {
+      this.log(e.text, e.kind);
+    }
     this.stepCount++;
 
     this._drainMergeEvents();
@@ -88,6 +97,8 @@ class World {
     this.hist.optimal.push(p.avg('optimalTemp'));
     this.hist.tolerance.push(p.avg('tolerance'));
     this.hist.dormancy.push(p.avg('dormancy'));
+    this.hist.intelligence.push(p.avg('intelligence'));
+    this.hist.knowledge.push(this.civ.knowledge);
   }
 
   _drainMergeEvents() {
@@ -127,15 +138,22 @@ class World {
     }
     if (p.count > 0) this._milestones.delete('extinct0');
 
-    // Civilisation milestones by generation depth
-    for (const g of [25, 75, 150, 300, 600, 1000]) {
-      const key = `gen${g}`;
-      if (p.generation >= g && !this._milestones.has(key)) {
-        this._milestones.add(key);
-        this.log(`Lineage reached ${g} generations — life is adapting.`, 'life');
+    // Pre-sapient milestones: the slow, uncertain climb toward a big brain.
+    if (!this.civ.awakened) {
+      const intel = p.avg('intelligence');
+      for (const [frac, key, msg] of [
+        [0.20, 'i20', 'Curiosity stirs — brains are growing, slowly.'],
+        [0.35, 'i35', 'Tool-use appears. The surplus is paying for grey matter.'],
+        [0.50, 'i50', 'On the cusp of sapience — if the good times hold.'],
+      ]) {
+        if (intel >= frac && !this._milestones.has(key)) {
+          this._milestones.add(key);
+          this.log(msg, 'life');
+        } else if (intel < frac - 0.06) this._milestones.delete(key);
       }
     }
-    // Flourishing
+
+    // Flourishing biosphere
     if (p.count >= 300 && !this._milestones.has('flourish')) {
       this._milestones.add('flourish');
       this.log('The biosphere is flourishing (300+ organisms).', 'life');
