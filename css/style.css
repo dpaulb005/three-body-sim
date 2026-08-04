@@ -575,6 +575,33 @@ input[type=range]::-moz-range-thumb {
 .tech.next { border-left-color: var(--hairline); opacity: .65; }
 .tech.sup { border-left-color: var(--violet); }
 .tech.sup h4 { color: var(--violet); }
+.tech .grp {
+  display: block; font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 2px;
+}
+/* The ultimate goal — what all this energy is ultimately being spent on. */
+.tech.telos { border-left-color: var(--amber); background: rgba(255,214,10,.05); }
+.tech.telos h4 { font-family: var(--font-display); letter-spacing: .04em; color: var(--amber); }
+.tech.telos .fx { list-style: none; margin: 7px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tech.telos .fx li {
+  font-size: 10.5px; line-height: 1.45; color: var(--ink-2);
+  padding-left: 8px; border-left: 1px solid rgba(255,214,10,.3);
+}
+.tech.telos .fx b { color: var(--ink); font-weight: 600; }
+/* Roads physically closed to this species. */
+.tech.closed { border-left-color: var(--red); opacity: .75; }
+.tech.closed h4 { color: var(--ink-2); font-weight: 500; }
+.aff {
+  display: inline-block; margin-top: 5px; font-size: 9.5px;
+  letter-spacing: .04em; font-variant-numeric: tabular-nums;
+}
+.aff.cheap { color: var(--green); }
+.aff.dear  { color: var(--orange); }
+.dossier .telos {
+  margin: 0 0 14px; font-size: 11.5px; line-height: 1.5; color: var(--ink-2);
+  padding-left: 9px; border-left: 2px solid rgba(255,214,10,.45);
+}
+.dossier .telos b { color: var(--amber); font-weight: 600; }
 
 /* ── Galaxy roster ────────────────────────────────────────── */
 .galaxy-list { display: flex; flex-direction: column; gap: 3px; }

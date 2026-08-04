@@ -79,6 +79,15 @@ function speciesDossier(world) {
     if (civ.crises.schism > 0) add(weaknesses, 0.7, `${civ.crises.schism} schism${civ.crises.schism > 1 ? 's' : ''} — they have torn themselves apart from the inside.`);
     if (civ.crises.shock > 0) add(weaknesses, 0.7, `${civ.crises.shock} time${civ.crises.shock > 1 ? 's' : ''} overtaken by an era that turned faster than they could think.`);
     if (civ.transcended) add(strengths, 1.0, 'They mastered their own sky and left it — the rarest outcome there is.');
+
+    // Energy is the one axis where every species is measured the same way.
+    if (civ.kLevel >= 2) add(strengths, 1.0, `Type ${civ.kLevel >= 3 ? 'III' : 'II'} — they command ${fmt.watts(civ.energyWatts)}. ${civ.telos.typeII}`);
+    else if (civ.kLevel >= 1) add(strengths, 0.85, `Type I — the entire energy budget of their world is theirs to spend. ${civ.telos.typeI}`);
+    else if (civ.knowledge > 2000) add(weaknesses, 0.55, `They know a great deal and command only ${fmt.watts(civ.energyWatts)}. Understanding is not the same as power.`);
+
+    // What roads their world physically closed to them.
+    const shut = TECHS.filter(t => !techAvailable(t, ad, prof));
+    if (shut.length) add(weaknesses, 0.75, `Cannot ever build ${shut.map(t => t.name.toLowerCase()).join(', ')} — ${prohibitionReason(ad, prof).join(' and ')}. Everything they achieve, they achieve another way.`);
   }
 
   // ── From biology ──
@@ -116,6 +125,8 @@ function speciesDossier(world) {
   return {
     name: speciesName(prof, sig, ad),
     habitatLine: habitat,
+    telos: civ.awakened || civ.everAwakened ? civ.telos : null,
+    kardashev: civ.awakened ? `${civ.kardashevName} · ${fmt.watts(civ.energyWatts)}` : null,
     strengths: strengths.slice(0, 5).map(x => x.text),
     weaknesses: weaknesses.slice(0, 5).map(x => x.text),
     verdict: verdictFor(world, strengths, weaknesses),

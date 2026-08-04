@@ -232,6 +232,10 @@ class Galaxy {
     if (w.adaptations.has('telepathy')) m += 0.20;     // nothing can be hidden from them
     m += w.civ.offense * 0.5;
     m += clamp(w.civ.tierIdx / 7, 0, 1) * 0.3;
+    // Raw energy is frightening on its own terms. Anything that has taken its
+    // star apart can do to you whatever it decides to, and intentions are not
+    // something you get to verify from four light years away.
+    m += clamp((w.civ.kLevel - 1) / 2, 0, 1) * 0.45;
     return m;
   }
 
@@ -259,15 +263,22 @@ class Galaxy {
     if (joint > 0.45) {
       a.relations.set(b.id, 'ally'); b.relations.set(a.id, 'ally');
       a.log(`The two worlds begin to talk. Knowledge starts to flow between ${a.starName} and ${b.starName}.`, 'contact');
-      a.civ.giftKnowledge(180); b.civ.giftKnowledge(180);
+      // What each learns is proportionate to how far ahead the other is, so a
+      // gift from a Type II to a young world is transformative and the reverse
+      // is barely worth noticing.
+      const share = (from, to) => to.civ.giftKnowledge(Math.max(200, (from.civ.knowledge - to.civ.knowledge) * 0.25));
+      share(a, b); share(b, a);
       a.milestone(`Alliance with ${b.starName}`, 'contact');
       b.milestone(`Alliance with ${a.starName}`, 'contact');
     } else if (joint < -0.25 && bothSpacefaring) {
       a.relations.set(b.id, 'hostile'); b.relations.set(a.id, 'hostile');
-      // Dominance: the more advanced and more cohesive world prevails, and the
-      // loser pays for it in knowledge and population.
-      const scoreA = a.civ.knowledge * (0.5 + a.civ.cohesion);
-      const scoreB = b.civ.knowledge * (0.5 + b.civ.cohesion);
+      // Dominance: knowledge and unity matter, but energy decides. A war
+      // between a civilisation that has taken its star apart and one that has
+      // not is not a war, and the Kardashev term is exponential for exactly
+      // that reason.
+      const might = (w) => w.civ.knowledge * (0.5 + w.civ.cohesion)
+        * Math.pow(10, w.civ.kLevel * 2) * (1 + w.civ.offense);
+      const scoreA = might(a), scoreB = might(b);
       const win = scoreA >= scoreB ? a : b, lose = win === a ? b : a;
       // The winner uses whatever it actually built.
       const lattice = win.civ.techs.has('sophon');

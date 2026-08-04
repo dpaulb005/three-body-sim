@@ -98,6 +98,16 @@ const fmt = {
     if (n < 1e12) return `${(n / 1e9).toFixed(n < 1e10 ? 2 : 1)} billion`;
     return `${(n / 1e12).toFixed(2)} trillion`;
   },
+  // Power runs from a campfire to a galaxy, so SI prefixes give out fast.
+  watts: (w) => {
+    if (!(w > 0)) return '—';
+    const units = [[1e24, 'YW'], [1e21, 'ZW'], [1e18, 'EW'], [1e15, 'PW'],
+      [1e12, 'TW'], [1e9, 'GW'], [1e6, 'MW'], [1e3, 'kW']];
+    for (const [scale, suffix] of units) {
+      if (w >= scale) return `${(w / scale).toFixed(w / scale < 10 ? 1 : 0)} ${suffix}`;
+    }
+    return `${w.toFixed(0)} W`;
+  },
 };
 
 // Sky colour for the surface view, interpolated through hand-picked stops:

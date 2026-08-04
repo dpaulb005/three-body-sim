@@ -283,6 +283,52 @@ Programmable Bodies and Chemical Personalities can produce restless innovators
 who transcend. Liquid water is a range where life is *possible* — not a
 guarantee that it goes anywhere.
 
+### Technology — biology chooses the route, physics sets the ceiling
+
+Every civilisation is bound by the same thermodynamics, so the milestones are
+universal. But *how* a species gets there is decided by what evolution made it.
+Three mechanisms do the work:
+
+| | |
+|---|---|
+| **Branches** | parallel roads to the same capability. Metallurgy and Cultured Metallophores both give you materials |
+| **Affinity** | a species pays less knowledge for technologies its biology suits, and more for those it does not |
+| **Prohibition** | some roads are simply shut. **There is no fire under an ocean** |
+
+An aquatic species can never light a fire, so metallurgy and heat engines are
+permanently closed to it. It reaches computation anyway — through cultured
+neural tissue rather than circuits — and it gets there via Symbioculture →
+Metallophores → Living Computation while a dry world is still smelting ore. A
+species raised under hard radiation is not frightened of fission and reaches it
+centuries early. One that eats light regards an unintercepted photon as waste,
+so a Dyson swarm is not an exotic megaproject to it but the obvious next step.
+
+**The Kardashev scale sits past the named ages**, and it measures energy rather
+than cleverness: `K = (log₁₀ W − 6) / 10`. Type I commands a world's power,
+Type II a star's, Type III a galaxy's. Industrial capacity scales with
+population; a structure already built around the star does not, because at that
+point the output is the star's.
+
+Each species also has a **telos** — the thing it is ultimately *for* — derived
+from its biology rather than chosen, and it decides what its Type II looks like:
+
+| Species | Ultimate goal | Their Type II |
+|---|---|---|
+| Photosynthetic | maximum energy capture | **Dyson Swarm** — any photon that misses them is a loss |
+| Hive mind | maximum computation | **Stellar Mind** — the swarm is not a power plant, it is a brain |
+| Crystal memory | perfect preservation | **Matrioshka Archive** — matter is worth more as record than as structure |
+| Aquatic / symbiotic | spreading life | **Living Swarm** — grown, not assembled |
+| Radiation-adapted | harnessing extremes | **Stellar Plasma Tapping** — closer in than anything else survives |
+| Redundant / distributed | survival | **Stellar Megastructure** — not impressive, just still there afterwards |
+| Collective dreamers | simulated worlds | **Matrioshka Archive** — running worlds that do not exist |
+| Us | exploration and knowledge | **Dyson Swarm** — power for instruments, fuel for ships |
+
+A civilisation builds **exactly one** star-scale structure. It is the single
+irreversible statement it makes about itself, and which one it built tells you
+what its species was for. Raw energy also feeds back into the galaxy: a Type II
+neighbour is terrifying regardless of temperament, and a war between a
+civilisation that has taken its star apart and one that has not is not a war.
+
 ### The species dossier
 
 Every world generates a field entry for whatever evolved there: a name derived
@@ -331,10 +377,16 @@ js/config.js        all tunable constants (physics, climate, evolution)
 js/utils.js         RNG, math, colour, history ring-buffer
 js/physics.js       Body + NBodySystem (velocity-Verlet integrator)
 js/climate.js       flux → temperature → era classification
+js/environment.js   world profile + the running signature of what a world IS
+js/adaptations.js   the 21 divergent evolutionary roads, and their gates
 js/evolution.js     Creature genome + Population selection model
-js/civilization.js  awakening, knowledge ages, collapses, pinnacle
+js/technology.js    branches, affinity, prohibition, telos, Kardashev scale
+js/civilization.js  awakening, knowledge ages, collapses, energy, pinnacle
+js/species.js       the derived dossier — who these people actually are
 js/presets.js       the ready-made star systems
 js/world.js         binds physics+climate+life, history & event log
+js/galaxy.js        worlds light years apart, and how they find each other
+js/worldeditor.js   live world editing + shareable URL encoding
 js/render.js        cosmos / biosphere / graph rendering
 js/ui.js            controls + pointer interaction
 js/main.js          boot + animation loop

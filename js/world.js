@@ -128,7 +128,8 @@ class World {
     this.population.census(K, this.civ.techFx.carry,
       0.3 + 0.7 * this.signature.stableFrac, this.profile.gravity);
     this.civ._memoryAdd = fx.memoryAdd;
-    for (const e of this.civ.update(this.population, this.climate, dt, fx)) {
+    for (const e of this.civ.update(this.population, this.climate, dt, fx,
+        this.adaptations, this.profile)) {
       this.log(e.text, e.kind);
       this.milestone(e.text, e.kind);
     }

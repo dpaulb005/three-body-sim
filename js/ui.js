@@ -154,7 +154,9 @@ class UI {
     this.$('btn-gift').onclick = () => {
       const c = this.world.civ;
       if (!c.awakened) { this.world.log('There is no one yet to receive the gift.', 'info'); return; }
-      c.giftKnowledge(260);
+      // Proportionate, so a gift still means something to a civilisation whose
+      // knowledge is already measured in the hundreds of thousands.
+      c.giftKnowledge(Math.max(260, c.knowledge * 0.18));
       this.world.log('A divine insight accelerates the civilisation.', 'tierup');
     };
     this.$('btn-burn').onclick = () => {
@@ -556,7 +558,11 @@ class UI {
       }
     } else {
       status.classList.remove('asleep');
-      status.innerHTML = `<b>${civ.tier.name}</b><br>Knowledge <span class="hl">${fmt.int(civ.knowledge)}</span>`;
+      // The age is what they know; the Kardashev level is what they can DO.
+      // Both are shown because they come apart — a species can know a great
+      // deal and command almost nothing, and vice versa.
+      status.innerHTML = `<b>${civ.tier.name}</b><br>Knowledge <span class="hl">${fmt.int(civ.knowledge)}</span>` +
+        ` · <span class="hl">${civ.kardashevName}</span> <span style="color:var(--ink-3)">${fmt.watts(civ.energyWatts)}</span>`;
     }
 
     // Age stepper
@@ -587,6 +593,9 @@ class UI {
       : `<p class="adapt-empty">No civilisation yet.</p>`;
     this.$('civ-facts').innerHTML =
       row('Zenith ever reached', civ.zenithName) +
+      (civ.awakened ? row('Energy commanded', fmt.watts(civ.energyWatts)) : '') +
+      (civ.awakened ? row('Kardashev', `K ${civ.kLevel.toFixed(2)} · ${civ.kardashevName}`) : '') +
+      (civ.awakened ? row('Ultimate goal', civ.telos.name) : '') +
       row('Dark Ages survived', civ.collapses) +
       row('Tech shielding', fmt.pct(civ.protection)) +
       row('Rebuild speed', `${civ.memoryBonus.toFixed(1)}×`) +
@@ -604,7 +613,9 @@ class UI {
       `<div class="dossier">
         <h4>${d.name}</h4>
         <p class="hab">${d.habitatLine}</p>
+        ${d.kardashev ? `<p class="hab">${d.kardashev}</p>` : ''}
         <p class="verdict">${d.verdict}</p>
+        ${d.telos ? `<p class="telos"><b>${d.telos.name}.</b> ${d.telos.creed}</p>` : ''}
         ${d.strengths.length ? `<div class="sw good"><span>Extraordinary at</span><ul>${d.strengths.map(li).join('')}</ul></div>` : ''}
         ${d.weaknesses.length ? `<div class="sw bad"><span>The price</span><ul>${d.weaknesses.map(li).join('')}</ul></div>` : ''}
       </div>`;
@@ -660,9 +671,10 @@ class UI {
       this.$('galaxy-list').innerHTML = g.worlds.map((w, i) => {
         const civ = w.civ.awakened ? w.civ.tier.name : (w.population.count ? 'pre-sapient' : 'lifeless');
         const rel = w.contacts.size ? `${w.contacts.size} contact${w.contacts.size > 1 ? 's' : ''}` : 'alone';
+        const k = w.civ.awakened && w.civ.kLevel >= 0.8 ? ` · ${w.civ.kardashevName}` : '';
         return `<button class="gal-row${i === g.activeIndex ? ' active' : ''}" data-i="${i}">
           <span class="gal-name">${w.starName}</span>
-          <span class="gal-sub">${w.profile.label} · ${civ} · pop ${w.population.count} · ${rel}</span>
+          <span class="gal-sub">${w.profile.label} · ${civ}${k} · pop ${fmt.people(w.population.headcount || w.population.count)} · ${rel}</span>
         </button>`;
       }).join('');
       this.$('galaxy-list').querySelectorAll('.gal-row').forEach(btn => {
@@ -699,10 +711,10 @@ class UI {
 
   updateCivRecord() {
     const w = this.world, c = w.civ;
-    void c;
     this.$('civ-headline').innerHTML =
       `<b>${w.speciesName || 'Unnamed'}</b><span>${w.starName} · ${w.presetName}</span>` +
-      `<span>${w.orbits.toFixed(0)} orbits elapsed</span>`;
+      `<span>${w.orbits.toFixed(0)} orbits elapsed</span>` +
+      (c.awakened ? `<span>${c.kardashevName} · ${fmt.watts(c.energyWatts)}</span>` : '');
 
     const list = w.adaptations.list;
     const ctx2 = { sunCount: w.system.suns.length };
@@ -714,18 +726,42 @@ class UI {
           `<ul class="fx">${adaptationEffectLines(a).map(l => `<li>${l}</li>`).join('')}</ul></div>`).join('')
       : `<p class="adapt-empty">No divergent evolution yet.</p>`;
 
-    // Technology: what they have built, and what is within reach.
+    // Technology: what they have built, what is within reach, and — the point
+    // of the whole system — WHY this species took this road and not another.
     const have = [...c.techs].map(techById).filter(Boolean);
-    const next = TECHS.filter(t => !c.techs.has(t.id) &&
-      (!t.needs || c.techs.has(t.needs))).sort((x, y) => x.k - y.k).slice(0, 2);
+    const next = upcomingTechs(c, c.techs, w.adaptations, w.profile, c.telos, 2);
+    const closed = TECHS.filter(t => !techAvailable(t, w.adaptations, w.profile));
+    const affinity = (t) => {
+      const f = techCostFactor(t, w.adaptations, w.profile, c.telos);
+      if (f <= 0.7) return `<span class="aff cheap">${f.toFixed(2)}× — their biology suits this</span>`;
+      if (f >= 1.2) return `<span class="aff dear">${f.toFixed(2)}× — this cuts against what they are</span>`;
+      return '';
+    };
     this.$('civ-tech').innerHTML =
+      (c.awakened
+        ? `<div class="tech telos"><span class="grp">Ultimate goal · ${c.kardashevName}</span>` +
+          `<h4>${c.telos.name}</h4><p>${c.telos.creed}</p>` +
+          `<ul class="fx">` +
+          `<li><b>Type I.</b> ${c.telos.typeI}</li>` +
+          `<li><b>Type II.</b> ${c.telos.typeII}</li>` +
+          `<li><b>Type III.</b> ${c.telos.typeIII}</li></ul></div>` : '') +
       (c.suppressedBy ? `<div class="tech sup"><h4>Science suppressed</h4><p>Their experiments return nonsense. Someone has reached across the dark and taken their physics from them.</p></div>` : '') +
       (have.length
-        ? have.map(t => `<div class="tech${t.weapon ? ' weapon' : ''}"><h4>${t.name}</h4><p>${t.desc}</p></div>`).join('')
+        ? have.map(t => `<div class="tech${t.weapon ? ' weapon' : ''}"><span class="grp">${t.branch}</span>` +
+            `<h4>${t.name}</h4><p>${t.desc}</p>${affinity(t)}</div>`).join('')
         : `<p class="adapt-empty">Nothing built yet.</p>`) +
       (next.length && c.awakened
-        ? `<div class="tech next"><h4>Next: ${next[0].name}</h4>` +
-          `<p>Needs ${fmt.int(next[0].k)} knowledge — they have ${fmt.int(c.knowledge)}.</p></div>` : '');
+        ? next.map(({ tech, cost }) => `<div class="tech next"><span class="grp">${tech.branch}</span>` +
+            `<h4>Next: ${tech.name}</h4>` +
+            `<p>Needs ${fmt.int(cost)} knowledge — they have ${fmt.int(c.knowledge)}.</p>` +
+            `${affinity(tech)}</div>`).join('') : '') +
+      // Roads physically closed to them. This is the honest half of the idea:
+      // a species is defined as much by what it can never build.
+      (closed.length && c.awakened
+        ? `<div class="tech closed"><span class="grp">closed to them</span>` +
+          `<h4>${closed.map(t => t.name).join(', ')}</h4>` +
+          `<p>Because ${prohibitionReason(w.adaptations, w.profile).join(' and ')}. ` +
+          `Whatever these people become, they will get there another way.</p></div>` : '');
 
     const ms = w.milestones;
     const hkey = w.id + ':' + ms.length;

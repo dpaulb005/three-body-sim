@@ -51,6 +51,14 @@ class Civilization {
     this.techs = new Set();
     this.techFx = techEffects(this.techs);
     this.newTech = null;          // most recent unlock, for the UI
+    // What this species is ultimately FOR — derived from its biology, and the
+    // reason two civilisations at the same Kardashev level look nothing alike.
+    this.telos = TELOI[TELOI.length - 1];
+    // Physics, not cleverness: total power commanded, and where that sits on
+    // the Kardashev scale.
+    this.energyWatts = 0;
+    this.kLevel = 0;
+    this.peakK = 0;
     // Interference inflicted by a rival (a sophon-style lattice): science stops.
     this.suppressedBy = 0;
     this.suppressTimer = 0;
@@ -109,9 +117,32 @@ class Civilization {
 
   get totalCrises() { return this.crises.schism + this.crises.stagnation + this.crises.shock; }
 
-  update(pop, climate, dt, fx = null) {
+  get kardashevName() { return kardashevLabel(this.kLevel); }
+
+  /*
+   * Total power commanded. Technology sets the ceiling; population decides how
+   * much of that ceiling is actually built out — a species that knows how to
+   * make a Dyson swarm and numbers four thousand has not made one. The
+   * reference point is deliberately Earth-like: eight billion people with heat
+   * engines land near 1e13 W, which is roughly where we actually are.
+   */
+  _updateEnergy(pop) {
+    const headcount = pop.headcount || pop.count || 0;
+    const deploy = clamp(headcount / 5e9, 0.02, 1);
+    // Industry is limited by how many of them there are; a structure already
+    // built around the star is not.
+    this.energyWatts = this.awakened
+      ? this.techFx.power * deploy + this.techFx.powerFixed : 0;
+    this.kLevel = kardashev(this.energyWatts);
+    this.peakK = Math.max(this.peakK, this.kLevel);
+  }
+
+  update(pop, climate, dt, fx = null, adaptations = null, profile = null) {
     const cfg = CONFIG.civ;
     fx = fx || baseEffects();
+    const ad = adaptations || { has: () => false };
+    const prof = profile || { hydrosphere: 'mixed', radiation: 0 };
+    this.telos = telosFor(ad, prof);
     const events = [];
     const count = pop.count;
     const avgIntel = pop.avg('intelligence');
@@ -142,6 +173,9 @@ class Civilization {
           kind: 'awaken',
         });
       }
+      // Nobody is left to run anything, so nothing is being run.
+      this.energyWatts = 0;
+      this.kLevel = 0;
       return events;
     }
 
@@ -159,11 +193,27 @@ class Civilization {
     }
 
     // ---- Technology ----
-    for (const t of availableTechs(this, this.techs)) {
+    // Which techs are even on the table is decided by biology (affinity makes
+    // some routes cheap) and by the world (there is no fire underwater).
+    for (const t of availableTechs(this, this.techs, ad, prof, this.telos)) {
       this.techs.add(t.id);
       this.techFx = techEffects(this.techs);
       this.newTech = t;
       events.push({ text: `${t.name} — ${t.desc}`, kind: 'tech' });
+    }
+
+    // ---- Energy, and the Kardashev thresholds ----
+    // These are announced separately from technology because they are not an
+    // achievement of cleverness. They are a measurement.
+    const prevK = this.kLevel;
+    this._updateEnergy(pop);
+    for (const step of KARDASHEV_STEPS) {
+      if (prevK < step.k && this.kLevel >= step.k) {
+        events.push({
+          text: `${step.name} — ${step.what} ${this.telos[step.telosKey] || ''}`.trim(),
+          kind: 'pinnacle',
+        });
+      }
     }
     if (this.suppressTimer > 0) this.suppressTimer--;
     else this.suppressedBy = 0;
