@@ -33,6 +33,9 @@ const CONTACT = {
   // Tech tier at which it can hear anyone else.
   listenTier: 4,  // Industry — radio astronomy is not that hard
   checkEvery: 240,
+  // How far a spacefaring civilisation can positively identify an inhabited
+  // world that is not signalling at all.
+  surveyRange: 30,
 };
 
 class Galaxy {
@@ -106,40 +109,113 @@ class Galaxy {
 
   _knows(a, b) { return a.contacts.has(b.id); }
 
+  /*
+   * Contact is asymmetric, and that asymmetry is the whole point.
+   *
+   * A civilisation with telescopes and probes can detect a world that has no
+   * idea it is being watched — biosignatures and city lights give a
+   * pre-industrial world away completely, and it learns nothing in return.
+   * So there are three ways to find out about somebody else, and which one you
+   * get depends entirely on how advanced you are:
+   *
+   *   RADIO      both sides are broadcasting and listening: mutual, and roughly
+   *              fair. This is the only symmetric kind.
+   *   OBSERVED   a spacefaring civilisation surveys a quiet world. The observer
+   *              knows everything; the observed knows nothing at all.
+   *   ARRIVAL    somebody turns up. For a low-technology world this is usually
+   *              the first it ever hears of anyone — by which point the matter
+   *              has already been decided.
+   */
+  _surveyRange(w) {
+    // Telescopes and probes: how far this civilisation can positively identify
+    // an inhabited world that is not signalling.
+    if (!w.civ.awakened || w.civ.tierIdx < 5) return 0;
+    return CONTACT.surveyRange * (0.4 + w.civ.reach);
+  }
+
   _testContact() {
     const ws = this.worlds;
     for (let i = 0; i < ws.length; i++) {
       for (let j = 0; j < ws.length; j++) {
         if (i === j) continue;
-        const listener = ws[i], source = ws[j];
-        if (this._knows(listener, source)) continue;
-        if (!this._listening(listener)) continue;
-        const power = this._emitting(source);
-        if (power <= 0) continue;
-        const d = this.lightYears(listener, source);
-        if (d > CONTACT.baseRange * power) continue;
+        const obs = ws[i], target = ws[j];
+        if (this._knows(obs, target)) continue;
+        if (target.population.count === 0) continue;
+        const d = this.lightYears(obs, target);
 
-        listener.contacts.add(source.id);
-        const mutual = this._knows(source, listener);
-        const sName = source.speciesName || source.starName;
-        const lName = listener.speciesName || listener.starName;
-        listener.log(`First contact — a signal from ${source.starName}, ${d.toFixed(1)} light years out. They are not alone.`, 'contact');
-        listener.milestone(`Detected ${source.starName} (${sName}) at ${d.toFixed(1)} ly`, 'contact');
-        if (!mutual) {
-          source.log(`Something is listening. A world at ${listener.starName} has heard ${lName ? 'them' : 'this world'}.`, 'contact');
+        // ── Radio: both sides technological. Symmetric. ──
+        const heard = this._listening(obs) && this._emitting(target) > 0 &&
+          d <= CONTACT.baseRange * this._emitting(target);
+
+        // ── Survey: the observer is advanced enough to simply look. ──
+        const surveyed = !heard && d <= this._surveyRange(obs);
+
+        if (!heard && !surveyed) continue;
+
+        obs.contacts.add(target.id);
+        const tName = target.speciesName || 'something alive';
+
+        if (heard) {
+          obs.log(`First contact — a signal from ${target.starName}, ${d.toFixed(1)} light years out. They are not alone.`, 'contact');
+          obs.milestone(`Detected ${target.starName} (${tName}) at ${d.toFixed(1)} ly`, 'contact');
+          if (!this._knows(target, obs)) {
+            target.log(`Something is listening. A world at ${obs.starName} has heard them.`, 'contact');
+          }
+          this.contacts.push({ a: obs.id, b: target.id, t: obs.system.time, kind: 'radio' });
+          this._resolveRelation(obs, target, d);
+        } else {
+          // The observed world is told nothing. It cannot be, because it has no
+          // way of knowing — and that silence is the point.
+          obs.log(`Survey complete: ${target.starName}, ${d.toFixed(1)} light years out, is inhabited. Whatever lives there has no idea it has been seen.`, 'contact');
+          obs.milestone(`Surveyed ${target.starName} — ${tName}, unaware`, 'contact');
+          this.contacts.push({ a: obs.id, b: target.id, t: obs.system.time, kind: 'observed' });
+          this._resolveObservation(obs, target, d);
         }
-        this.contacts.push({ a: listener.id, b: source.id, t: listener.system.time });
-        this._resolveRelation(listener, source, d);
         return;  // one contact per check, so the chronicle stays readable
       }
     }
   }
 
   /*
-   * What contact turns into. Decided by what the two species actually are:
-   * empathic and collective minds reach out, grudge-keepers and logicians do
-   * not, and only spacefaring civilisations can do anything about it either way.
+   * What an advanced civilisation does about a world that cannot see it back.
+   * Ignore it, watch it, or take it — and if it takes it, the victim's first
+   * and last knowledge of anyone else is the arrival itself.
    */
+  _resolveObservation(obs, target, d) {
+    obs.relations.set(target.id, 'observing');
+    const fear = this._menace(target);
+    const canReach = obs.civ.reach >= 0.6;
+    const predatory = (obs.civ.cohesion < 0.45 || fear > 0.4 || obs.adaptations.has('logic'))
+      && !obs.adaptations.has('empathic');
+
+    if (!canReach || !predatory) {
+      obs.log(`They decide to watch, and say nothing.`, 'contact');
+      return;
+    }
+
+    // Arrival. This is the moment the quiet world learns anybody else exists.
+    obs.relations.set(target.id, 'hostile');
+    target.relations.set(obs.id, 'hostile');
+    target.contacts.add(obs.id);   // they know now, because it is on top of them
+
+    const era = target.civ.awakened ? target.civ.tier.name : 'pre-sapient';
+    if (obs.civ.techs.has('warheads')) {
+      target.civ.knowledge *= 0.15;
+      target.population.massExtinction(0.7);
+      target.log(`The sky filled with light. They had no word for what arrived, no theory that permitted it, and no warning. This is the first time they learn that anyone else exists.`, 'crisis');
+      target.milestone(`Annihilated from orbit by ${obs.starName} — a ${era} world that never saw it coming`, 'crisis');
+      obs.log(`${target.starName} is cleared. It was a ${era} world; it never knew what happened.`, 'contact');
+      obs.milestone(`Cleared ${target.starName} before it could answer`, 'contact');
+    } else {
+      target.civ.knowledge *= 0.35;
+      target.population.massExtinction(0.4);
+      target.log(`Ships came down out of a sky they had only ever looked at. Their first contact with another civilisation is its occupation of their world.`, 'crisis');
+      target.milestone(`Conquered by ${obs.starName} — first contact was the invasion`, 'crisis');
+      obs.log(`${target.starName} is taken. A ${era} world put up what resistance it could.`, 'contact');
+      obs.milestone(`Conquered ${target.starName}`, 'contact');
+    }
+  }
+
   /*
    * How frightening a species is to meet. Fear is not about hostility — it is
    * about what the other side could do to you and how little of it you would
