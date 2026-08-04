@@ -124,6 +124,23 @@ input[type=range]::-moz-range-thumb {
 .readout .bar { grid-column: 1 / -1; height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 2px 0 5px; }
 .readout .bar > i { display: block; height: 100%; }
 
+/* ---- Civilization panel ---- */
+.civ-status { font-size: 12px; margin-bottom: 8px; color: var(--muted); }
+.civ-status b { color: var(--text); font-size: 13px; }
+.civ-status.asleep { font-style: italic; }
+.civ-track { display: flex; gap: 3px; margin-bottom: 6px; }
+.civ-track span {
+  flex: 1; text-align: center; font-size: 13px; padding: 3px 0; border-radius: 4px;
+  background: #161b2e; border: 1px solid var(--line); filter: grayscale(1) opacity(0.35);
+  transition: filter .2s, background .2s;
+}
+.civ-track span.reached { filter: none; background: #1d2740; border-color: #33406b; }
+.civ-track span.current { filter: none; background: #123a3f; border-color: var(--accent); box-shadow: 0 0 8px rgba(125,227,255,.35); }
+.civ-track span.peak { border-color: var(--warn); }
+.civ-prog { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.civ-prog > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.nudge-label em { color: var(--warn); font-style: normal; text-transform: none; letter-spacing: 0; }
+
 /* ---- Log ---- */
 .log { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow-y: auto; font-size: 11px; }
 .log li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--muted); }
@@ -133,6 +150,11 @@ input[type=range]::-moz-range-thumb {
 .log li.death { color: var(--bad); }
 .log li.life { color: var(--accent); }
 .log li.cosmic { color: #c8b8ff; }
+.log li.awaken { color: #fff2a8; font-weight: 700; }
+.log li.tierup { color: #9fe8ff; }
+.log li.collapse { color: #ff8a7d; font-weight: 600; }
+.log li.lost { color: #d08a8a; font-style: italic; }
+.log li.pinnacle { color: #ffd27f; font-weight: 700; text-shadow: 0 0 10px rgba(255,210,127,.5); }
 
 /* ---- Responsive ---- */
 @media (max-width: 900px) {

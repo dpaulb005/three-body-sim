@@ -286,6 +286,13 @@ class Renderer {
           ctx.strokeStyle = 'rgba(230,240,255,0.6)'; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(x, y, r + 2, 0, Math.PI * 2); ctx.stroke();
         }
+        // A bright halo marks the clever ones — you can watch sapience spread.
+        if (c.g.intelligence > 0.45) {
+          const a = clamp((c.g.intelligence - 0.45) / 0.55, 0, 1);
+          ctx.strokeStyle = `rgba(255,240,170,${(0.35 + 0.6 * a).toFixed(2)})`;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.arc(x, y, r + 3.5, 0, Math.PI * 2); ctx.stroke();
+        }
       }
     }
 
@@ -297,6 +304,20 @@ class Renderer {
     ctx.fillText(clim.era, 10, 18);
     ctx.textAlign = 'right'; ctx.fillStyle = '#e8eeff';
     ctx.fillText(`${fmt.temp(clim.tempC)}   ·   ${pop.count} alive`, w - 10, 18);
+
+    // Civilisation banner along the bottom once sapience has arisen.
+    const civ = this.world.civ;
+    if (civ.awakened) {
+      ctx.fillStyle = 'rgba(0,0,0,0.42)';
+      ctx.fillRect(0, h - 22, w, 22);
+      ctx.textAlign = 'left'; ctx.font = 'bold 12px system-ui';
+      ctx.fillStyle = '#ffe9a8';
+      ctx.fillText(`${civ.tier.icon} ${civ.tier.name}`, 10, h - 7);
+      ctx.textAlign = 'right'; ctx.font = '11px system-ui';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      const dark = civ.collapses ? `  ·  ${civ.collapses} dark age${civ.collapses === 1 ? '' : 's'}` : '';
+      ctx.fillText(`knowledge ${fmt.int(civ.knowledge)}${dark}`, w - 10, h - 7);
+    }
   }
 
   _darken(hsl, f) {
@@ -347,9 +368,21 @@ class Renderer {
     // capacity/flourish reference
     this._areaLine(ctx, H.pop, w, 0, pmax, py, botY + botH - pad, 'rgba(125,255,176,0.85)', 'rgba(125,255,176,0.15)');
     this._line(ctx, H.dormant, w, 0, pmax, py, 'rgba(180,190,210,0.9)', 1.4);
+
+    // Knowledge, drawn on its own normalised scale so the rise-and-collapse
+    // sawtooth of civilisations is readable next to the population curve.
+    const kmax = Math.max(200, H.knowledge.max() * 1.1);
+    const ky = (v) => botY + pad + (kmax - v) / kmax * (botH - 2 * pad);
+    this._line(ctx, H.knowledge, w, 0, kmax, ky, 'rgba(255,210,127,0.95)', 1.6);
+    // Average intelligence (0..1) mapped across the same panel.
+    const iy = (v) => botY + pad + (1 - v) * (botH - 2 * pad);
+    this._line(ctx, H.intelligence, w, 0, 1, iy, 'rgba(200,160,255,0.8)', 1.3);
+
     ctx.fillStyle = 'rgba(125,255,176,0.9)'; ctx.textAlign = 'left'; ctx.font = '10px system-ui';
-    ctx.fillText('Population', 6, botY + 12);
-    ctx.fillStyle = 'rgba(180,190,210,0.9)'; ctx.fillText('· dormant', 66, botY + 12);
+    ctx.fillText('Pop', 6, botY + 12);
+    ctx.fillStyle = 'rgba(180,190,210,0.9)'; ctx.fillText('· dormant', 30, botY + 12);
+    ctx.fillStyle = 'rgba(255,210,127,0.95)'; ctx.fillText('· knowledge', 86, botY + 12);
+    ctx.fillStyle = 'rgba(200,160,255,0.9)'; ctx.fillText('· intel', 152, botY + 12);
     ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.textAlign = 'right';
     ctx.fillText(fmt.int(pmax), w - 4, botY + 12);
   }

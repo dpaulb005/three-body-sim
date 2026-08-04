@@ -19,7 +19,9 @@
     <div class="stat"><label>Era</label><span id="stat-era" class="era">—</span></div>
     <div class="stat"><label>Surface</label><span id="stat-temp">—</span></div>
     <div class="stat"><label>Population</label><span id="stat-pop">—</span></div>
-    <div class="stat"><label>Generation</label><span id="stat-gen">—</span></div>
+    <div class="stat" title="Average intelligence of the population. Big brains are expensive — they only evolve where the world is rich and calm enough to pay for them."><label>Intelligence</label><span id="stat-intel">—</span></div>
+    <div class="stat" title="The civilisation's current age. Collapses knock it back down."><label>Age</label><span id="stat-age">—</span></div>
+    <div class="stat" title="Dark Ages suffered — each rebuild goes faster"><label>Collapses</label><span id="stat-collapse">—</span></div>
     <div class="stat"><label>Suns</label><span id="stat-suns">—</span></div>
     <div class="stat"><label>Orbit time</label><span id="stat-time">—</span></div>
     <div class="stat" title="Energy conservation of the integrator — near zero means physically faithful orbits">
@@ -122,6 +124,11 @@
             <button data-trait="metabolism" data-delta="-0.3">– Slower</button>
             <button data-trait="metabolism" data-delta="0.3">+ Faster</button>
           </div>
+          <span class="nudge-label">Intelligence <em>(expensive!)</em></span>
+          <div class="row">
+            <button data-trait="intelligence" data-delta="-0.15">– Dull</button>
+            <button data-trait="intelligence" data-delta="0.15">🧠 Uplift</button>
+          </div>
         </div>
 
         <label class="slider">Cataclysm severity <output id="out-cata">60%</output>
@@ -129,6 +136,20 @@
         </label>
         <div class="row">
           <button id="btn-extinct" class="danger">☄ Trigger Cataclysm</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head">Civilization</div>
+        <div id="civ-body">
+          <div id="civ-status" class="civ-status"></div>
+          <div class="civ-track" id="civ-track"></div>
+          <div class="civ-prog"><i id="civ-prog-fill"></i></div>
+          <div id="civ-facts" class="readout"></div>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-gift" title="Grant a leap of insight">💡 Gift Insight</button>
+            <button id="btn-burn" class="danger" title="Destroy most of their accumulated knowledge">🔥 Burn Library</button>
+          </div>
         </div>
       </div>
 

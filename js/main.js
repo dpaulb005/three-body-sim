@@ -32,6 +32,7 @@
     if (textAccum >= 7) {
       textAccum = 0;
       ui.updateHUD();
+      ui.updateCiv();
       ui.updateReadout();
       ui.updateLog();
     }
