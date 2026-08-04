@@ -31,6 +31,8 @@ function randomGenome() {
   // Wide dormancy spread so some seeds are pre-adapted — selection has raw
   // material to work with when the first Chaotic Era strikes.
   g.dormancy = clamp(RNG() * 0.6, 0, 1);
+  // Start dim: intelligence is expensive and must be earned by selection.
+  g.intelligence = clamp(RNG() * 0.15, 0, 1);
   return g;
 }
 
@@ -117,7 +119,9 @@ class Population {
     return Math.sqrt(s / n);
   }
 
-  update(climate, dt) {
+  // `protection` (0..1) comes from an awakened civilisation's technology and
+  // shields the population from thermal stress — the tech-vs-suns race.
+  update(climate, dt, protection = 0) {
     const T = climate.tempC;
     const prod = climate.productivity;
     const rate = this.evolutionRate;
@@ -126,6 +130,13 @@ class Population {
     const newborns = [];
     let births = 0, deaths = 0;
     const cs = this.creatures;
+
+    // Density-dependent competition. Once the world approaches its carrying
+    // capacity, individuals must compete for scarce slots and the least
+    // competitive are crowded out. Without this, a full world blocks births by
+    // luck alone and no trait can ever be selected for — which is precisely the
+    // regime where an expensive brain must prove its worth.
+    const crowding = clamp((cs.length / K - 0.75) / 0.25, 0, 1);
 
     for (let i = cs.length - 1; i >= 0; i--) {
       const c = cs[i];
@@ -138,12 +149,18 @@ class Population {
       const stress = c.stress(T);
       const sizeN = norm('size', c.g.size);
       const dormN = c.g.dormancy;              // already 0..1
+      const intel = c.g.intelligence;          // 0..1
+      // Behavioural + technological buffering of thermal stress.
+      const relief = clamp(CONFIG.intelStressRelief * intel + protection, 0, 0.95);
+      const mortStress = stress * (1 - relief);
 
       // ---- Dormancy decision (dehydration) ----
       if (c.dormant) {
         // Better dormancy genes drain slower while dehydrated — they can wait
         // out longer Chaotic Eras.
-        c.energy -= CONFIG.dormancyDrain * dt * 60 * (1 - 0.6 * dormN);
+        // Deep cryptobiosis: a highly dormant lineage burns almost nothing and
+        // can ride out a Chaotic Era that lasts for ages (cf. tardigrades).
+        c.energy -= CONFIG.dormancyDrain * dt * 60 * Math.pow(1 - 0.97 * dormN, 2);
         // Rehydrate when conditions become survivable again.
         if (stress < 0.5 || RNG() < 0.001) c.dormant = false;
         if (c.energy <= 0) { this._kill(cs, i); deaths++; continue; }
@@ -156,19 +173,32 @@ class Population {
 
       // ---- Mortality (active creatures) ----
       let death = CONFIG.baseDeathRate;
-      if (stress > 1) death += 0.035 * (stress - 1) / (0.4 + sizeN); // size buffers stress
-      // starvation when productivity can't feed metabolism
-      const upkeep = 0.4 + 0.6 * norm('metabolism', c.g.metabolism) + 0.4 * sizeN;
+      if (mortStress > 1) death += 0.035 * (mortStress - 1) / (0.4 + sizeN); // size buffers stress
+      // starvation when productivity can't feed metabolism — the fixed brain
+      // cost makes intelligence lethal in poor conditions, life-changing in rich ones.
+      const upkeep = 0.4 + 0.6 * norm('metabolism', c.g.metabolism) + 0.4 * sizeN
+        + CONFIG.intelCostUpkeep * intel;
       if (prod < upkeep * 0.5) death += CONFIG.baseDeathRate * (1 - prod / (upkeep * 0.5 + 1e-6));
       // old age
       if (c.age > CONFIG.maxAge) death += (c.age - CONFIG.maxAge) / CONFIG.maxAge * 0.01;
+      // Competition for scarce resources in a crowded world: those carrying the
+      // least energy reserve lose out. A clever forager banks more, so it wins
+      // the squeeze — this is where intelligence finally repays its upkeep.
+      if (crowding > 0) {
+        const reserve = clamp((c.energy - 0.5) / 2.0, 0, 1);
+        death += crowding * 0.010 * (1 - reserve);
+      }
       death *= rate;
 
-      // energy bookkeeping
-      const gain = prod * (0.9 + 0.6 * norm('metabolism', c.g.metabolism)) / (0.7 + 0.6 * sizeN);
+      // energy bookkeeping: brains only pay off where productivity is high
+      const gain = prod * (0.9 + 0.6 * norm('metabolism', c.g.metabolism))
+        * (1 + CONFIG.intelForageGain * intel * prod) / (0.7 + 0.6 * sizeN);
       c.energy += (gain - upkeep) * 0.02 * dt * 60;
       if (c.energy < 0) { death += CONFIG.activeDrain * (-c.energy) * 40; c.energy = 0; }
-      c.energy = clamp(c.energy, 0, 1.4);
+      // Generous ceiling: reserves must stay meaningfully different between a
+      // clever forager and a dull one, otherwise everyone saturates and
+      // intelligence stops being visible to selection.
+      c.energy = clamp(c.energy, 0, 3.0);
 
       if (RNG() < death) { this._kill(cs, i); deaths++; continue; }
 
@@ -181,8 +211,15 @@ class Population {
           * (1 - 0.45 * dormN)        // dormancy tax
           * (1 - 0.35 * tolN)         // generalist tax
           * (1 - 0.30 * sizeN)        // size tax
+          * (1 - CONFIG.intelReproTax * intel) // long childhoods: fewer offspring
           * prod                      // needs a productive environment
-          * (1 - stress);            // must be well-matched right now
+          * (1 - stress)             // must be well-matched right now
+          // Surplus energy buys breeding opportunities. This is what lets an
+          // expensive brain pay for itself: in a rich, calm world a clever
+          // forager banks far more surplus than it loses to slow breeding. In a
+          // poor or chaotic world there is no surplus, so the brain is pure
+          // cost and selection strips it away.
+          * (0.35 + 1.15 * clamp(c.energy - 0.7, 0, 1.6) / 1.6);
         repro *= rate;
         if (RNG() < repro) {
           const child = new Creature(mutateGenome(c.g, this.mutationScale), c.gen + 1);

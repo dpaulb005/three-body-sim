@@ -49,6 +49,43 @@ const CONFIG = {
     dormancy:      { min: 0,   max: 1,  label: 'Dormancy (dehydration)' },
     metabolism:    { min: 0.3, max: 2.0, label: 'Metabolism' },
     size:          { min: 0.4, max: 2.5, label: 'Size' },
+    intelligence:  { min: 0,   max: 1,  label: 'Intelligence' },
+  },
+
+  // ---- Intelligence: an EXPENSIVE trait (the "Earth got lucky" gate) ----
+  // A big brain is a fixed metabolic burden, so it is selected AGAINST unless
+  // the world is rich and calm enough that its foraging payoff repays the cost.
+  // Harsh worlds stay stuck at bare survival and never afford sapience.
+  intelCostUpkeep: 0.9,    // extra energy upkeep at intelligence=1
+  intelForageGain: 1.6,    // foraging bonus (only cashed in when productivity is high)
+  intelReproTax: 0.35,     // fewer offspring at intelligence=1 (long childhoods)
+  intelStressRelief: 0.25, // smart creatures shelter a little from thermal stress
+
+  // ---- Civilization ----
+  civ: {
+    awakenIntel: 0.55,     // avg intelligence needed to awaken sapience
+    awakenPop: 110,        // and a population large enough to sustain culture
+    loseIntel: 0.30,       // below this avg intelligence, sapience is bred back out
+    growthRate: 0.042,      // knowledge points gained per step at full swing
+    decayLowPop: 0.04,     // knowledge lost per step when population is tiny
+    collapseAbsPop: 34,    // awakened + pop below this -> collapse (dark age)
+    collapsePeakFrac: 0.34,// or pop below this fraction of recent peak during chaos
+    collapseKeep: 0.10,    // fraction of knowledge that survives a collapse
+    collapseCooldown: 300, // steps before another collapse can fire
+    memoryPerCollapse: 0.4,// each reboot rebuilds this much faster (cultural memory)
+    memoryCap: 3.0,
+    maxProtection: 0.45,   // tech blunts the suns but never conquers them
+    // Named ages unlocked as cumulative knowledge crosses each threshold.
+    tiers: [
+      { k: 0,    name: 'Stone Age',    icon: '🪨' },
+      { k: 120,  name: 'Fire & Tribe', icon: '🔥' },
+      { k: 320,  name: 'Agriculture',  icon: '🌾' },
+      { k: 640,  name: 'Writing',      icon: '📜' },
+      { k: 1100, name: 'Industry',     icon: '⚙️' },
+      { k: 1800, name: 'Science',      icon: '🔬' },
+      { k: 2800, name: 'Spaceflight',  icon: '🚀' },
+      { k: 4200, name: 'Transcendence', icon: '🌌' }, // pinnacle
+    ],
   },
 };
 
