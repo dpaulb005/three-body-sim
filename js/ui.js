@@ -66,6 +66,7 @@ class UI {
       const ang = RNG() * Math.PI * 2;
       const x = com.x + Math.cos(ang) * off, y = com.y + Math.sin(ang) * off;
       if (this.bodyType === 'sun') this.world.addSun(x, y, 0, 0, this.placeMass);
+      else if (this.bodyType === 'planet') this.world.addPlanet(x, y);
       else this.world.addRogue(x, y, 0, 0, this.placeMass);
     };
 
@@ -74,6 +75,26 @@ class UI {
       if (!this.renderer.selected) return;
       this.renderer.selected.mass = +e.target.value;
       this.$('out-selmass').textContent = (+e.target.value).toFixed(2);
+      this.world.system._invalidateEnergy();
+      this.refreshSelected();
+    };
+    for (const [id, axis] of [['in-selvx', 'vx'], ['in-selvy', 'vy']]) {
+      this.$(id).oninput = (e) => {
+        if (!this.renderer.selected) return;
+        this.renderer.selected[axis] = +e.target.value;
+        this.world.system._invalidateEnergy();
+        this.refreshSelected();
+      };
+    }
+    this.$('btn-circ').onclick = () => {
+      if (!this.renderer.selected) return;
+      this.world.circularise(this.renderer.selected);
+      this.refreshSelected();
+    };
+    this.$('btn-halt').onclick = () => {
+      const b = this.renderer.selected;
+      if (!b) return;
+      b.vx = 0; b.vy = 0;
       this.world.system._invalidateEnergy();
       this.refreshSelected();
     };
@@ -217,8 +238,25 @@ class UI {
       this._syncEditor();
     };
 
+    // ---- Camera ----
+    document.querySelectorAll('#viewbar .v-btn[data-view]').forEach(btn => {
+      btn.onclick = () => {
+        this.renderer.setMode(btn.dataset.view);
+        this._syncView();
+      };
+    });
+    this.$('btn-recenter').onclick = () => {
+      this.renderer.setMode('planet');
+      this._syncView();
+    };
+
     this.setPlayLabel(true);
     this._syncEditor();
+  }
+
+  _syncView() {
+    document.querySelectorAll('#viewbar .v-btn[data-view]').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === this.renderer.cam.mode));
   }
 
   selectWorld(i) {
@@ -286,6 +324,11 @@ class UI {
     const sm = this.$('in-selmass');
     sm.value = clamp(sel.mass, +sm.min, +sm.max);
     this.$('out-selmass').textContent = sel.mass.toFixed(2);
+    for (const [id, out, axis] of [['in-selvx', 'out-selvx', 'vx'], ['in-selvy', 'out-selvy', 'vy']]) {
+      const el = this.$(id);
+      el.value = clamp(sel[axis], +el.min, +el.max);
+      this.$(out).textContent = sel[axis].toFixed(2);
+    }
   }
 
   // ---- pointer interaction ----
@@ -297,6 +340,7 @@ class UI {
     };
 
     cv.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;    // pan buttons are handled separately
       const p = pos(e);
       const hit = this.renderer.pick(p.x, p.y);
       if (hit) {
@@ -327,12 +371,43 @@ class UI {
       const k = 0.5; // drag distance -> launch speed
       const vx = (c.x - s.x) * k, vy = (c.y - s.y) * k;
       if (this.bodyType === 'sun') this.world.addSun(s.x, s.y, vx, vy, this.placeMass);
-      else this.world.addRogue(s.x, s.y, vx, vy, this.placeMass);
+      else if (this.bodyType === 'planet') {
+        const b = this.world.addPlanet(s.x, s.y);
+        if (vx || vy) { b.vx = vx; b.vy = vy; }
+      } else this.world.addRogue(s.x, s.y, vx, vy, this.placeMass);
       this.drag = null;
       this.renderer.ghost = null;
     };
     cv.addEventListener('pointerup', finish);
     cv.addEventListener('pointercancel', () => { this.drag = null; this.renderer.ghost = null; });
+
+    // Wheel zooms about the cursor.
+    cv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const p = pos(e);
+      this.renderer.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, p.x, p.y);
+      this._syncView();
+    }, { passive: false });
+
+    // Right or middle drag pans, leaving left-drag free for creating bodies.
+    cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    let panning = null;
+    cv.addEventListener('pointerdown', (e) => {
+      if (e.button !== 2 && e.button !== 1) return;
+      e.preventDefault();
+      panning = pos(e);
+      cv.setPointerCapture(e.pointerId);
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!panning) return;
+      const p = pos(e);
+      this.renderer.panBy(p.x - panning.x, p.y - panning.y);
+      panning = p;
+      this._syncView();
+    });
+    const endPan = () => { panning = null; };
+    cv.addEventListener('pointerup', endPan);
+    cv.addEventListener('pointercancel', endPan);
   }
 
   _updateGhost() {
@@ -353,6 +428,8 @@ class UI {
       if (e.code === 'Space') { e.preventDefault(); this.togglePlay(); }
       if (e.key === 'r' || e.key === 'R') this.reset();
       if (e.key === 'l' || e.key === 'L') this.$('btn-seed').click();
+      if (e.key === 'f' || e.key === 'F') { this.renderer.setMode('planet'); this._syncView(); }
+      if (e.key === 'g' || e.key === 'G') { this.renderer.setMode('system'); this._syncView(); }
     });
   }
 
@@ -369,7 +446,9 @@ class UI {
     this.$('stat-temp').title = showsNiche
       ? `Habitat ${fmt.temp(c.habitatTempC)} · planetary surface ${fmt.temp(c.tempC)}`
       : '';
-    this.$('stat-pop').textContent = fmt.int(p.count);
+    // Show the real census; the dots on screen are only a sample of it.
+    this.$('stat-pop').textContent = p.headcount >= 1 ? fmt.people(p.headcount) : fmt.int(p.count);
+    this.$('stat-pop').title = `${fmt.int(p.count)} organisms shown as a genetic sample`;
 
     const civ = w.civ;
     const intel = p.avg('intelligence');
@@ -487,9 +566,12 @@ class UI {
       row('Sunless time', fmt.pct(sig.darkFrac));
 
     const emerged = w.adaptations.list;
+    const ctx = { sunCount: w.system.suns.length };
     this.$('adapt-list').innerHTML = emerged.length
       ? emerged.map(a => `<div class="adapt"><span class="grp">${a.group}</span>` +
-          `<h4>${a.name}</h4><p>${a.blurb}</p></div>`).join('')
+          `<h4>${a.name}</h4><p>${a.blurb}</p>` +
+          `<p class="why">${adaptationReason(a, sig, prof, ctx)}</p>` +
+          `<ul class="fx">${adaptationEffectLines(a).map(l => `<li>${l}</li>`).join('')}</ul></div>`).join('')
       : `<p class="adapt-empty">${sig.mature
           ? 'Nothing yet. This world has not pushed life hard enough in any one direction.'
           : 'Too early — the world has not been observed long enough.'}</p>`;
@@ -499,7 +581,9 @@ class UI {
       ? press.map(({ a, p }) => {
           const prog = w.adaptations.progress[a.id];
           return `<div class="adapt pending"><span class="grp">${a.group} · pressure ${fmt.pct(p)}</span>` +
-            `<h4>${a.name}</h4><div class="track"><i style="width:${(prog * 100).toFixed(0)}%"></i></div></div>`;
+            `<h4>${a.name}</h4>` +
+            `<p class="why">${adaptationReason(a, sig, prof, ctx)}</p>` +
+            `<div class="track"><i style="width:${(prog * 100).toFixed(0)}%"></i></div></div>`;
         }).join('')
       : `<p class="adapt-empty">No path is under meaningful pressure right now.</p>`;
   }
@@ -552,16 +636,33 @@ class UI {
 
   updateCivRecord() {
     const w = this.world, c = w.civ;
+    void c;
     this.$('civ-headline').innerHTML =
       `<b>${w.speciesName || 'Unnamed'}</b><span>${w.starName} · ${w.presetName}</span>` +
       `<span>${w.orbits.toFixed(0)} orbits elapsed</span>`;
 
     const list = w.adaptations.list;
+    const ctx2 = { sunCount: w.system.suns.length };
     this.$('civ-traits').innerHTML = list.length
       ? list.map(a => `<div class="adapt"><span class="grp">${a.group}</span><h4>${a.name}</h4>` +
+          `<p class="why">${adaptationReason(a, w.signature, w.profile, ctx2)}</p>` +
           `<p><b style="color:var(--green)">Boon.</b> ${a.boon}</p>` +
-          `<p><b style="color:var(--red)">Cost.</b> ${a.cost}</p></div>`).join('')
+          `<p><b style="color:var(--red)">Cost.</b> ${a.cost}</p>` +
+          `<ul class="fx">${adaptationEffectLines(a).map(l => `<li>${l}</li>`).join('')}</ul></div>`).join('')
       : `<p class="adapt-empty">No divergent evolution yet.</p>`;
+
+    // Technology: what they have built, and what is within reach.
+    const have = [...c.techs].map(techById).filter(Boolean);
+    const next = TECHS.filter(t => !c.techs.has(t.id) &&
+      (!t.needs || c.techs.has(t.needs))).sort((x, y) => x.k - y.k).slice(0, 2);
+    this.$('civ-tech').innerHTML =
+      (c.suppressedBy ? `<div class="tech sup"><h4>Science suppressed</h4><p>Their experiments return nonsense. Someone has reached across the dark and taken their physics from them.</p></div>` : '') +
+      (have.length
+        ? have.map(t => `<div class="tech${t.weapon ? ' weapon' : ''}"><h4>${t.name}</h4><p>${t.desc}</p></div>`).join('')
+        : `<p class="adapt-empty">Nothing built yet.</p>`) +
+      (next.length && c.awakened
+        ? `<div class="tech next"><h4>Next: ${next[0].name}</h4>` +
+          `<p>Needs ${fmt.int(next[0].k)} knowledge — they have ${fmt.int(c.knowledge)}.</p></div>` : '');
 
     const ms = w.milestones;
     const hkey = w.id + ':' + ms.length;

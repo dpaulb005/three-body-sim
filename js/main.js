@@ -14,7 +14,7 @@
   const ui = new UI(galaxy, renderer);
 
   // expose for tinkering in the console
-  window.DEMIURGE = { galaxy, renderer, ui, CONFIG, get world() { return galaxy.active; } };
+  window.HELIURGE = { galaxy, renderer, ui, CONFIG, get world() { return galaxy.active; } };
 
   // A shared link fully specifies its world; otherwise start on Trisolaris.
   if (!ui.editor.applyFromURL()) {

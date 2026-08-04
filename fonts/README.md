@@ -11,7 +11,7 @@ range the interface uses — 36 KB for the pair.
 | File | Family | Used for | Weights |
 |------|--------|----------|---------|
 | `space-grotesk.woff2` | Space Grotesk | All interface and canvas text | 300–700 |
-| `orbitron.woff2` | Orbitron | The `DEMIURGE` wordmark and page headings only | 400–900 |
+| `orbitron.woff2` | Orbitron | The `HELIURGE` wordmark and page headings only | 400–900 |
 
 Both are the `latin` subset only, which is all this English-language interface
 needs. To add more scripts, re-download the relevant subsets from Google Fonts

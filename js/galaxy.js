@@ -140,6 +140,25 @@ class Galaxy {
    * empathic and collective minds reach out, grudge-keepers and logicians do
    * not, and only spacefaring civilisations can do anything about it either way.
    */
+  /*
+   * How frightening a species is to meet. Fear is not about hostility — it is
+   * about what the other side could do to you and how little of it you would
+   * understand. A single mind spanning a whole world, something that cannot be
+   * killed, or something already carrying weapons is terrifying regardless of
+   * its intentions.
+   */
+  _menace(w) {
+    let m = 0;
+    if (w.adaptations.has('hivemind')) m += 0.45;      // no one to negotiate with
+    if (w.adaptations.has('redundancy')) m += 0.30;    // cannot be killed
+    if (w.adaptations.has('distributed')) m += 0.20;
+    if (w.adaptations.has('logic')) m += 0.15;         // unmoved by appeals
+    if (w.adaptations.has('telepathy')) m += 0.20;     // nothing can be hidden from them
+    m += w.civ.offense * 0.5;
+    m += clamp(w.civ.tierIdx / 7, 0, 1) * 0.3;
+    return m;
+  }
+
   _resolveRelation(a, b, d) {
     const warmth = (w) =>
       (w.civ.cohesion - 0.58)
@@ -149,7 +168,14 @@ class Galaxy {
       + (w.adaptations.has('crystals') ? -0.35 : 0)   // they remember every slight
       + (w.adaptations.has('logic') ? -0.2 : 0);
 
-    const wa = warmth(a), wb = warmth(b);
+    // Fear of what the other side is, subtracted from any willingness to talk.
+    const fearA = this._menace(b), fearB = this._menace(a);
+    const wa = warmth(a) - fearA * 0.8, wb = warmth(b) - fearB * 0.8;
+    if (fearA > 0.55 || fearB > 0.55) {
+      const scared = fearA >= fearB ? a : b, feared = scared === a ? b : a;
+      scared.log(`What they have found frightens them. ${feared.starName} is something they cannot reason with.`, 'crisis');
+      scared.milestone(`Terror at what was found orbiting ${feared.starName}`, 'crisis');
+    }
     // Only a civilisation that can actually reach across the gap can fight over it.
     const bothSpacefaring = a.civ.tierIdx >= 5 && b.civ.tierIdx >= 5;
     const joint = wa + wb;
@@ -167,12 +193,32 @@ class Galaxy {
       const scoreA = a.civ.knowledge * (0.5 + a.civ.cohesion);
       const scoreB = b.civ.knowledge * (0.5 + b.civ.cohesion);
       const win = scoreA >= scoreB ? a : b, lose = win === a ? b : a;
-      lose.civ.knowledge *= 0.4;
-      lose.population.massExtinction(0.35);
-      win.log(`War across ${d.toFixed(1)} light years. ${win.starName} prevails over ${lose.starName}.`, 'contact');
-      lose.log(`War across ${d.toFixed(1)} light years. ${lose.starName} is broken by ${win.starName}.`, 'crisis');
-      win.milestone(`Prevailed over ${lose.starName}`, 'contact');
-      lose.milestone(`Defeated by ${win.starName}`, 'crisis');
+      // The winner uses whatever it actually built.
+      const lattice = win.civ.techs.has('sophon');
+      const warheads = win.civ.techs.has('warheads');
+      if (lattice) {
+        // Never fire a shot: corrupt their physics and let them stall forever.
+        lose.civ.suppressedBy = win.id;
+        lose.civ.suppressTimer = 60000;
+        win.log(`An Observer Lattice is dispatched to ${lose.starName}. They will never know why their science stopped working.`, 'contact');
+        lose.log(`Every experiment now returns nonsense. Their physics has been taken from them, and they do not know by whom.`, 'crisis');
+        lose.milestone(`Science suppressed by ${win.starName}`, 'crisis');
+        win.milestone(`Lattice deployed against ${lose.starName}`, 'contact');
+      } else if (warheads) {
+        lose.civ.knowledge *= 0.25;
+        lose.population.massExtinction(0.6);
+        win.log(`Relativistic warheads cross ${d.toFixed(1)} light years. ${lose.starName} is devastated.`, 'contact');
+        lose.log(`Something arrived at a fraction of light speed. There was no warning and no defence.`, 'crisis');
+        lose.milestone(`Bombarded by ${win.starName}`, 'crisis');
+        win.milestone(`Bombarded ${lose.starName}`, 'contact');
+      } else {
+        lose.civ.knowledge *= 0.5;
+        lose.population.massExtinction(0.3);
+        win.log(`War across ${d.toFixed(1)} light years. ${win.starName} prevails over ${lose.starName}.`, 'contact');
+        lose.log(`War across ${d.toFixed(1)} light years. ${lose.starName} is broken by ${win.starName}.`, 'crisis');
+        win.milestone(`Prevailed over ${lose.starName}`, 'contact');
+        lose.milestone(`Defeated by ${win.starName}`, 'crisis');
+      }
     } else {
       a.relations.set(b.id, 'wary'); b.relations.set(a.id, 'wary');
       a.log(`Contact is made, and both worlds go quiet again. Neither trusts what it has found.`, 'contact');

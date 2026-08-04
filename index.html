@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Demiurge — Play God: N-Body Star Systems, Evolution &amp; Civilizations</title>
+<title>Heliurge — Play God: N-Body Star Systems, Evolution &amp; Civilizations</title>
 <meta name="description" content="A free physics sandbox where you play god. Add suns to build chaotic multi-star systems like the one in The Three-Body Problem, then watch real natural selection evolve life — and civilizations rise, collapse into dark ages, and rebuild." />
 <link rel="canonical" href="https://dpaulb005.github.io/three-body-sim/" />
 <meta name="theme-color" content="#141416" />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Demiurge — Play God with Suns, Life &amp; Civilizations" />
+<meta property="og:title" content="Heliurge — Play God with Suns, Life &amp; Civilizations" />
 <meta property="og:description" content="Build chaotic multi-sun systems, evolve life under real selection pressure, and watch civilizations climb and collapse. Free in your browser." />
 <meta property="og:url" content="https://dpaulb005.github.io/three-body-sim/" />
 <meta name="twitter:card" content="summary_large_image" />
@@ -23,7 +23,7 @@
 
 <!-- ────────────────  Top bar  ──────────────── -->
 <header id="topbar">
-  <div class="wordmark">Demiurge</div>
+  <div class="wordmark">Heliurge</div>
 
   <div class="metrics">
     <div class="metric wide">
@@ -84,7 +84,15 @@
       </button>
     </div>
 
-    <p id="stage-hint">Click a star to select · drag empty space to launch a body</p>
+    <div id="viewbar">
+      <button data-view="planet" class="v-btn active" title="Keep the world and its brightest sun framed">World</button>
+      <button data-view="system" class="v-btn" title="Frame the whole system, ignoring anything that has escaped">System</button>
+      <button data-view="free" class="v-btn" title="Free camera — wheel to zoom, right-drag to pan">Free</button>
+      <div class="t-sep"></div>
+      <button id="btn-recenter" class="v-btn" title="Snap back to the world">Recentre</button>
+    </div>
+
+    <p id="stage-hint">Left-drag to launch · right-drag to pan · wheel to zoom</p>
   </section>
 
   <!-- ────────────────  Inspector  ──────────────── -->
@@ -117,6 +125,7 @@
           <h3>Add a body</h3>
           <div class="segmented" id="body-type">
             <button data-type="sun" class="active">Sun</button>
+            <button data-type="planet">World</button>
             <button data-type="rogue">Rogue</button>
           </div>
           <div class="field">
@@ -136,7 +145,21 @@
             <output id="out-selmass"></output>
             <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
           </div>
-          <button id="btn-del" class="btn danger">Extinguish</button>
+          <div class="field">
+            <label for="in-selvx">Velocity X</label>
+            <output id="out-selvx"></output>
+            <input id="in-selvx" type="range" min="-3" max="3" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="in-selvy">Velocity Y</label>
+            <output id="out-selvy"></output>
+            <input id="in-selvy" type="range" min="-3" max="3" step="0.01" />
+          </div>
+          <div class="btn-row">
+            <button id="btn-circ" class="btn">Circular orbit</button>
+            <button id="btn-halt" class="btn">Bring to rest</button>
+          </div>
+          <button id="btn-del" class="btn danger" style="margin-top:6px">Extinguish</button>
         </div>
       </section>
 
@@ -269,6 +292,10 @@
           <div id="civ-facts" class="readout"></div>
         </div>
         <div class="block">
+          <h3>Technology</h3>
+          <div id="civ-tech" class="tech-list"></div>
+        </div>
+        <div class="block">
           <h3>Evolutions</h3>
           <div id="civ-traits" class="adapt-list"></div>
         </div>
@@ -333,6 +360,7 @@
 <script src="js/environment.js"></script>
 <script src="js/adaptations.js"></script>
 <script src="js/evolution.js"></script>
+<script src="js/technology.js"></script>
 <script src="js/civilization.js"></script>
 <script src="js/species.js"></script>
 <script src="js/presets.js"></script>

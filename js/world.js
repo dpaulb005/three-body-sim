@@ -119,6 +119,10 @@ class World {
     // Technology shields the population from the climate — so an advanced
     // civilisation literally changes the selection pressure acting on it.
     this.population.update(this.climate, dt, this.civ.protection, fx, this.profile);
+    // Translate the sampled biosphere into an actual census.
+    const K = Math.max(12, CONFIG.maxCreatures * (0.15 + 0.85 * this.climate.productivity));
+    this.population.census(K, this.civ.techFx.carry,
+      0.3 + 0.7 * this.signature.stableFrac, this.profile.gravity);
     this.civ._memoryAdd = fx.memoryAdd;
     for (const e of this.civ.update(this.population, this.climate, dt, fx)) {
       this.log(e.text, e.kind);
@@ -223,6 +227,40 @@ class World {
   _starName() {
     const names = ['Vega', 'Rigel', 'Mira', 'Lyra', 'Orin', 'Nova', 'Cygnus', 'Draco', 'Pyra', 'Zheng'];
     return names[Math.floor(RNG() * names.length)];
+  }
+
+  /** Drop a world at a given point, on a circular orbit if there is a star. */
+  addPlanet(x, y) {
+    const M = this.system.suns.reduce((s, b) => s + b.mass, 0);
+    const com = this.system.centerOfMass();
+    let vx = 0, vy = 0;
+    if (M > 0) {
+      const dx = x - com.x, dy = y - com.y;
+      const r = Math.hypot(dx, dy) || 1;
+      const v = Math.sqrt(CONFIG.G * M / r);
+      vx = -dy / r * v; vy = dx / r * v;   // perpendicular = circular
+    }
+    const b = this.system.add(new Body({ x, y, vx, vy, mass: 3e-5, type: 'planet', name: 'the world' }));
+    this.climate = new Climate();
+    this.climate.update(this.system, 0.0001, this.profile);
+    this.log('A world is placed.', 'cosmic');
+    return b;
+  }
+
+  /** Put a body onto a circular orbit about the system's centre of mass. */
+  circularise(body) {
+    const others = this.system.bodies.filter(b => b !== body);
+    if (!others.length) return;
+    let mx = 0, my = 0, m = 0;
+    for (const b of others) { mx += b.x * b.mass; my += b.y * b.mass; m += b.mass; }
+    if (m <= 0) return;
+    const cx = mx / m, cy = my / m;
+    const dx = body.x - cx, dy = body.y - cy;
+    const r = Math.hypot(dx, dy) || 1;
+    const v = Math.sqrt(CONFIG.G * m / r);
+    body.vx = -dy / r * v; body.vy = dx / r * v;
+    this.system._invalidateEnergy();
+    this.log(`${body.name || 'A body'} is set on a circular orbit.`, 'cosmic');
   }
 
   reseedPlanet() {

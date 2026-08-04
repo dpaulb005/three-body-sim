@@ -1,4 +1,4 @@
-# DEMIURGE — a god-simulator of suns, life & civilizations
+# HELIURGE — a god-simulator of suns, life & civilizations
 
 **The premise: Earth is a freakish stroke of luck.** We evolved on a quiet
 world with one well-behaved star, in a stable Goldilocks orbit, with nothing to
@@ -323,9 +323,9 @@ js/main.js          boot + animation loop
 ```
 
 Everything is plain, dependency-free JavaScript. Open the browser console and
-poke at `window.DEMIURGE` (`.world`, `.renderer`, `.ui`, `.CONFIG`) to
-experiment — e.g. `DEMIURGE.CONFIG.dt = 0.02` to speed up time, or
-`DEMIURGE.world.population.nudgeTrait('intelligence', 0.5)` to force an awakening.
+poke at `window.HELIURGE` (`.world`, `.renderer`, `.ui`, `.CONFIG`) to
+experiment — e.g. `HELIURGE.CONFIG.dt = 0.02` to speed up time, or
+`HELIURGE.world.population.nudgeTrait('intelligence', 0.5)` to force an awakening.
 
 *Not to scale, and not a substitute for a real astrophysics or population-genetics
 code — but every knob is grounded in a real mechanism.*

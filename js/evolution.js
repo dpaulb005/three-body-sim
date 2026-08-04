@@ -86,6 +86,35 @@ class Population {
     this.extinctions = 0;
     this._lastBirths = 0;
     this._lastDeaths = 0;
+
+    // The dots on screen are a genetic SAMPLE, not the species. `headcount` is
+    // the actual number of individuals alive, which technology and habitable
+    // area carry from thousands into the billions. Keeping the two separate is
+    // what lets the simulation stay cheap while the numbers stay real.
+    this.headcount = 0;
+    this.peakHeadcount = 0;
+  }
+
+  /*
+   * Census. The sampled agents give the *occupancy* of the world (how full it
+   * is relative to what it could hold); technology and habitable area give the
+   * ceiling. A pre-agricultural world holds a few hundred thousand; one with
+   * fixation, sanitation and orbital habitats holds billions.
+   */
+  census(K, techCarry = 1, habitableFrac = 1, gravity = 1) {
+    const occupancy = K > 0 ? clamp(this.count / K, 0, 1) : 0;
+    // Baseline a world can support with no technology at all.
+    const wildCeiling = 4.5e5;
+    // Denser worlds pack more in per unit area; bigger ones have more area.
+    const areaFactor = clamp(1 / Math.max(gravity, 0.2), 0.4, 2.4);
+    const ceiling = wildCeiling * techCarry * clamp(habitableFrac, 0.05, 1.4) * areaFactor;
+    const target = ceiling * occupancy;
+    // Populations move, but not instantly — this is generations, not frames.
+    this.headcount += (target - this.headcount) * 0.004;
+    if (this.count === 0) this.headcount *= 0.97;
+    if (this.headcount < 1) this.headcount = 0;
+    this.peakHeadcount = Math.max(this.peakHeadcount, this.headcount);
+    return this.headcount;
   }
 
   get count() { return this.creatures.length; }
@@ -107,7 +136,7 @@ class Population {
     }
   }
 
-  clear() { this.creatures.length = 0; this.generation = 0; }
+  clear() { this.creatures.length = 0; this.generation = 0; this.headcount = 0; this.peakHeadcount = 0; }
 
   // Average of a trait across the living population.
   avg(trait) {

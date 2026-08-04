@@ -47,6 +47,14 @@ class Civilization {
     this.cohesion = DIM_BASE.cohesion;
     this.adaptability = DIM_BASE.adaptability;
 
+    // Named technologies actually unlocked, and their cumulative effect.
+    this.techs = new Set();
+    this.techFx = techEffects(this.techs);
+    this.newTech = null;          // most recent unlock, for the UI
+    // Interference inflicted by a rival (a sophon-style lattice): science stops.
+    this.suppressedBy = 0;
+    this.suppressTimer = 0;
+
     this.crises = { schism: 0, stagnation: 0, shock: 0 };
     // Hysteresis: a society that has just torn itself apart cannot immediately
     // do it again. Cohesion must genuinely recover first, otherwise a species
@@ -78,8 +86,14 @@ class Civilization {
 
   get protection() {
     if (!this.awakened) return 0;
-    return (this.tierIdx / (this.tiers.length - 1)) * CONFIG.civ.maxProtection;
+    const base = (this.tierIdx / (this.tiers.length - 1)) * CONFIG.civ.maxProtection;
+    return clamp(base + this.techFx.shield, 0, 0.9);
   }
+
+  /** Whether this civilisation can act at interstellar distance, and how hard. */
+  get reach() { return this.techFx.reach; }
+  get offense() { return this.techFx.offense; }
+  get weapons() { return [...this.techs].map(techById).filter(t => t && t.weapon); }
 
   get memoryBonus() {
     const add = this._memoryAdd || 0;
@@ -144,6 +158,16 @@ class Civilization {
       return events;
     }
 
+    // ---- Technology ----
+    for (const t of availableTechs(this, this.techs)) {
+      this.techs.add(t.id);
+      this.techFx = techEffects(this.techs);
+      this.newTech = t;
+      events.push({ text: `${t.name} — ${t.desc}`, kind: 'tech' });
+    }
+    if (this.suppressTimer > 0) this.suppressTimer--;
+    else this.suppressedBy = 0;
+
     this._relaxDimensions(fx, climate, pop, count);
 
     // ---- The four ways to fall ----
@@ -173,8 +197,12 @@ class Civilization {
     // Below the stagnation floor, knowledge genuinely stops: a society with no
     // new ideas does not slowly advance, it sits still.
     const innovFactor = this.stagnant ? 0.02 : (0.12 + 0.88 * this.innovation);
+    // A civilisation whose physics has been corrupted by a rival's lattice
+    // cannot advance at all, however clever or numerous it is.
+    const suppressed = this.suppressedBy ? 0 : 1;
     this.knowledge += cfg.growthRate * popFactor * prodFactor * stableFactor
-      * innovFactor * this.memoryBonus * fx.knowledgeGrowthMult;
+      * innovFactor * this.memoryBonus * fx.knowledgeGrowthMult
+      * this.techFx.growth * suppressed;
 
     if (count < cfg.awakenPop * 0.4) this.knowledge = Math.max(0, this.knowledge - cfg.decayLowPop);
 
@@ -307,7 +335,7 @@ class Civilization {
         return true;
       }
       const fromAge = this.tier.name;
-      this.knowledge *= clamp(cfg.collapseKeep + fx.knowledgeKeepBonus, 0, 0.85);
+      this.knowledge *= clamp(cfg.collapseKeep + fx.knowledgeKeepBonus + this.techFx.keep, 0, 0.85);
       this.collapses++;
       this._collapseCd = cfg.collapseCooldown;
       this._lastTierIdx = this.tierIdx;

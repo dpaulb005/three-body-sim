@@ -267,6 +267,84 @@ const ADAPTATIONS = [
   },
 ];
 
+/*
+ * Why a world is pushing toward a given adaptation, stated in the measurements
+ * that actually opened its gate. Without this the traits look arbitrary; with
+ * it, every one of them is traceable to something the player can see happening.
+ */
+function adaptationReason(a, sig, prof, ctx) {
+  const bits = [];
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  switch (a.id) {
+    case 'distributed': case 'programmable':
+      bits.push(`temperature swings of ±${sig.tempVolatility.toFixed(0)}°`,
+        `a sky ${pct(sig.chaos)} hostile`); break;
+    case 'reversible': case 'hivemind': case 'castes':
+      bits.push(`eras flipping ${sig.eraChurn.toFixed(2)}× per orbit`,
+        `only ${pct(sig.stableFrac)} of time habitable`); break;
+    case 'biostorage':
+      bits.push(`eras flipping ${sig.eraChurn.toFixed(2)}× per orbit`,
+        'knowledge repeatedly destroyed'); break;
+    case 'slowthought':
+      bits.push(prof.rotationOrbits > 0.2
+        ? `a day lasting ${prof.rotationOrbits.toFixed(2)} orbits`
+        : `${pct(sig.stableFrac)} of time habitable and nothing ever hurrying`); break;
+    case 'emcomm': case 'telepathy':
+      bits.push(`${pct(prof.radiation)} radiation — this world is already full of signal`); break;
+    case 'photosynth':
+      bits.push(`abundant steady light (mean flux ${sig.fluxMean.toFixed(4)})`,
+        `${pct(sig.stableFrac)} habitable`); break;
+    case 'crystals':
+      bits.push(prof.hydrosphere === 'ice'
+        ? 'a frozen, mineral-rich world' : `a mean temperature of ${sig.meanTempC.toFixed(0)}°C`); break;
+    case 'symbiotic': case 'empathic': case 'chemself': case 'logic': case 'longevity':
+      bits.push(`${pct(sig.stableFrac)} of all time habitable`,
+        `swings of only ±${sig.tempVolatility.toFixed(0)}°`); break;
+    case 'redundancy':
+      bits.push(`${pct(prof.radiation)} radiation`, `a sky ${pct(sig.chaos)} hostile`); break;
+    case 'dreamers':
+      bits.push(`${pct(sig.darkFrac)} of time with no usable light`); break;
+    case 'topology':
+      bits.push(`${ctx.sunCount} suns whose motion has no closed solution`); break;
+    case 'quantum':
+      bits.push(sig.maxTempC > 70 ? `peaks reaching ${sig.maxTempC.toFixed(0)}°C` : null,
+        prof.radiation > 0.2 ? `${pct(prof.radiation)} radiation` : null); break;
+    case 'predictive':
+      bits.push(`${pct(sig.stableFrac)} habitable and utterly regular`); break;
+  }
+  const clean = bits.filter(Boolean);
+  return clean.length ? `Driven by ${clean.join(', ')}.` : 'Driven by this world\u2019s particular conditions.';
+}
+
+/** Plain-language summary of what an adaptation mechanically does. */
+function adaptationEffectLines(a) {
+  const L = [];
+  const f = a.effects;
+  const pctd = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
+  const multd = (v) => `${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`;
+  if (f.innovation) L.push(`Innovation ${pctd(f.innovation)}`);
+  if (f.cohesion) L.push(`Cohesion ${pctd(f.cohesion)}`);
+  if (f.adaptability) L.push(`Adaptability ${pctd(f.adaptability)}`);
+  if (f.knowledgeGrowthMult && f.knowledgeGrowthMult !== 1) L.push(`Knowledge growth ${multd(f.knowledgeGrowthMult)}`);
+  if (f.knowledgeKeepBonus) L.push(`Survives collapse ${pctd(f.knowledgeKeepBonus)}`);
+  if (f.reproMult && f.reproMult !== 1) L.push(`Breeding ${multd(f.reproMult)}`);
+  if (f.deathMult && f.deathMult !== 1) L.push(`Mortality ${multd(f.deathMult)}`);
+  if (f.redundancy) L.push(`${Math.round(f.redundancy * 100)}% of lethal events survived`);
+  if (f.dormancyDrainMult && f.dormancyDrainMult !== 1) L.push(`Dormancy cost ${multd(f.dormancyDrainMult)}`);
+  if (f.intelUpkeepMult && f.intelUpkeepMult !== 1) L.push(`Brain upkeep ${multd(f.intelUpkeepMult)}`);
+  if (f.upkeepMult && f.upkeepMult !== 1) L.push(`Body upkeep ${multd(f.upkeepMult)}`);
+  if (f.stressRelief) L.push(`Climate shielding ${pctd(f.stressRelief)}`);
+  if (f.lightProductivity) L.push('Food comes from light, not warmth');
+  if (f.mutationMult && f.mutationMult !== 1) L.push(`Mutation ${multd(f.mutationMult)}`);
+  if (f.collapseResist) L.push(`${Math.round(f.collapseResist * 100)}% chance to shrug off a collapse`);
+  if (f.awakenIntelDelta) L.push(`Sapience threshold ${f.awakenIntelDelta < 0 ? 'lowered' : 'raised'}`);
+  if (f.needsDiversity) L.push(`Fails if genetic variety drops below ${f.needsDiversity}`);
+  if (f.emDependent) L.push('Vulnerable: a flare silences them');
+  if (f.lightDependent) L.push('Vulnerable: a long night starves them');
+  if (f.unityDependent) L.push('Vulnerable: scattering breaks the mind');
+  return L;
+}
+
 const ADAPT_CONFIG = {
   maxAdaptations: 4,
   pressureRate: 0.00040,

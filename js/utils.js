@@ -89,6 +89,15 @@ const fmt = {
   int: (n) => Math.round(n).toLocaleString(),
   sci: (n) => Math.abs(n) < 1e-3 || Math.abs(n) > 1e4 ? n.toExponential(2) : n.toFixed(3),
   pct: (x) => `${(x * 100).toFixed(0)}%`,
+  // Populations run from dozens to billions, so give them readable magnitudes.
+  people: (n) => {
+    if (n < 1) return '0';
+    if (n < 1e3) return Math.round(n).toString();
+    if (n < 1e6) return `${(n / 1e3).toFixed(n < 1e4 ? 1 : 0)}k`;
+    if (n < 1e9) return `${(n / 1e6).toFixed(n < 1e7 ? 2 : 1)} million`;
+    if (n < 1e12) return `${(n / 1e9).toFixed(n < 1e10 ? 2 : 1)} billion`;
+    return `${(n / 1e12).toFixed(2)} trillion`;
+  },
 };
 
 // Sky colour for the surface view, interpolated through hand-picked stops:

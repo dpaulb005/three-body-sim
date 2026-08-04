@@ -19,7 +19,7 @@ class Renderer {
     this.surface = this._setup('surface');
     this.graphs = this._setup('graphs');
 
-    this.cam = { x: 0, y: 0, scale: CONFIG.pixelsPerUnit };
+    this.cam = { x: 0, y: 0, scale: CONFIG.pixelsPerUnit, mode: 'planet' };
     this._camInit = false;
     this.selected = null;
     this.ghost = null;   // {x,y,vx,vy,mass,type} while placing a body
@@ -61,26 +61,127 @@ class Renderer {
   }
 
   // ---- camera ----
-  fitCamera() {
+  /*
+   * The old camera auto-fitted every body every frame, which meant one sun
+   * slingshotting out of the system dragged the view with it and the planet
+   * shrank to nothing. Three fixes:
+   *
+   *   1. FOCUS MODES. Follow the planet (default), fit the system, or free.
+   *   2. ESCAPEE REJECTION. A fit ignores bodies that have clearly left, so a
+   *      departing star cannot hijack the framing.
+   *   3. MANUAL CONTROL. Wheel zooms, right/middle-drag pans, and touching
+   *      either drops you into free mode until you recentre.
+   *
+   * Nothing that leaves is ever lost, either: off-screen bodies get an edge
+   * marker showing which way they went and how far.
+   */
+  setMode(mode) {
+    this.cam.mode = mode;
+    if (mode !== 'free') this._camInit = false;   // re-frame immediately
+  }
+
+  zoomBy(factor, sx, sy) {
+    const before = this.screenToWorld(sx, sy);
+    this.cam.scale = clamp(this.cam.scale * factor, 0.6, 400);
+    const after = this.screenToWorld(sx, sy);
+    // Keep the point under the cursor pinned while zooming.
+    this.cam.x += before.x - after.x;
+    this.cam.y += before.y - after.y;
+    this.cam.mode = 'free';
+  }
+
+  panBy(dxPx, dyPx) {
+    this.cam.x -= dxPx / this.cam.scale;
+    this.cam.y -= dyPx / this.cam.scale;
+    this.cam.mode = 'free';
+  }
+
+  // Bodies that are still meaningfully part of the system. A star that has been
+  // flung out is excluded from framing so it stops stealing the view.
+  _framedBodies() {
     const bodies = this.world.system.bodies;
-    if (!bodies.length) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const b of bodies) {
-      minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x);
-      minY = Math.min(minY, b.y); maxY = Math.max(maxY, b.y);
+    if (bodies.length < 2) return bodies;
+    const com = this.world.system.centerOfMass();
+    const ds = bodies.map(b => Math.hypot(b.x - com.x, b.y - com.y));
+    const sorted = [...ds].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)] || 1;
+    // Generous cut: keep anything within 6x the median distance, always keep
+    // the planet, and never return an empty set.
+    const kept = bodies.filter((b, i) => b.type === 'planet' || ds[i] <= Math.max(median * 6, 3));
+    return kept.length ? kept : bodies;
+  }
+
+  fitCamera() {
+    const sys = this.world.system;
+    if (!sys.bodies.length) return;
+    const mode = this.cam.mode;
+    if (mode === 'free') return;
+
+    let target;
+    if (mode === 'planet' && sys.planet) {
+      // Frame the world and whatever star currently dominates its sky, so the
+      // planet is always visible and always in context.
+      const p = sys.planet;
+      const sun = this._brightestSunAt(p);
+      const span = sun ? Math.max(Math.hypot(sun.x - p.x, sun.y - p.y) * 2.4, 4) : 8;
+      const { w, h } = this.cosmos;
+      target = {
+        x: sun ? (p.x + sun.x) / 2 : p.x,
+        y: sun ? (p.y + sun.y) / 2 : p.y,
+        scale: clamp(Math.min(w, h) / span, 3, 200),
+      };
+    } else {
+      const bodies = this._framedBodies();
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const b of bodies) {
+        minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x);
+        minY = Math.min(minY, b.y); maxY = Math.max(maxY, b.y);
+      }
+      const spanX = Math.max(maxX - minX, 2), spanY = Math.max(maxY - minY, 2);
+      const { w, h } = this.cosmos;
+      target = {
+        x: (minX + maxX) / 2, y: (minY + maxY) / 2,
+        scale: clamp(Math.min(w / (spanX * 1.35), h / (spanY * 1.35)), 1.5, 200),
+      };
     }
-    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    const spanX = Math.max(maxX - minX, 2), spanY = Math.max(maxY - minY, 2);
-    const { w, h } = this.cosmos;
-    const pad = 1.35;
-    const scale = Math.min(w / (spanX * pad), h / (spanY * pad));
-    const target = { x: cx, y: cy, scale: clamp(scale, 3, 140) };
-    if (!this._camInit) { this.cam = { ...target }; this._camInit = true; }
+
+    if (!this._camInit) { this.cam = { ...this.cam, ...target }; this._camInit = true; }
     else {
-      const k = 0.06;
+      const k = 0.08;
       this.cam.x = lerp(this.cam.x, target.x, k);
       this.cam.y = lerp(this.cam.y, target.y, k);
       this.cam.scale = lerp(this.cam.scale, target.scale, k);
+    }
+  }
+
+  // Anything off-screen gets an arrow at the edge, so a body that leaves can
+  // always be found again.
+  _drawOffscreenMarkers(ctx) {
+    const { w, h } = this.cosmos;
+    const pad = 22;
+    for (const b of this.world.system.bodies) {
+      const p = this.worldToScreen(b.x, b.y);
+      if (p.x > -30 && p.x < w + 30 && p.y > -30 && p.y < h + 30) continue;
+      const cx = w / 2, cy = h / 2;
+      const dx = p.x - cx, dy = p.y - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = dx / len, ny = dy / len;
+      const t = Math.min((w / 2 - pad) / Math.abs(nx || 1e-6), (h / 2 - pad) / Math.abs(ny || 1e-6));
+      const ex = cx + nx * t, ey = cy + ny * t;
+
+      const col = b.type === 'planet' ? '#7de3ff' : starColor(b.mass);
+      ctx.save();
+      ctx.translate(ex, ey); ctx.rotate(Math.atan2(ny, nx));
+      ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, 4.5); ctx.lineTo(-5, -4.5); ctx.closePath();
+      ctx.fillStyle = col; ctx.fill();
+      ctx.restore();
+
+      const au = Math.hypot(b.x - this.cam.x, b.y - this.cam.y);
+      ctx.font = '500 9.5px ' + FONT;
+      ctx.fillStyle = 'rgba(235,235,245,0.55)';
+      ctx.textAlign = nx > 0.4 ? 'right' : nx < -0.4 ? 'left' : 'center';
+      ctx.fillText(`${b.name || b.type} ${au.toFixed(0)} AU`,
+        ex - nx * 12, ey - ny * 12 + 3);
     }
   }
 
@@ -165,6 +266,8 @@ class Renderer {
         this._arrowHead(ctx, p, tip);
       }
     }
+
+    this._drawOffscreenMarkers(ctx);
 
     // scale bar
     this._scaleBar(ctx);

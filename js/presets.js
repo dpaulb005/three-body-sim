@@ -19,6 +19,14 @@ const vCirc = (M, r) => Math.sqrt(CONFIG.G * M / r);
 
 const PRESETS = [
   {
+    name: 'Empty Space (sandbox)',
+    blurb: 'Nothing at all. Place your own suns and world, set their velocities, and see whether anything you build can hold together.',
+    profile: { label: 'Your design' },
+    build(world) {
+      // Deliberately empty. Everything here is the player's.
+    },
+  },
+  {
     name: 'Lone Sun (Earth-like)',
     blurb: 'A single steady star. Long Stable Era — life specialises and flourishes.',
     build(world) {

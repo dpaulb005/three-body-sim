@@ -1,5 +1,5 @@
 /* ============================================================
-   Demiurge — interface
+   Heliurge — interface
    Restrained, high-contrast, generous. The simulation is the
    subject; the chrome stays out of its way.
    ============================================================ */
@@ -163,6 +163,27 @@ main { flex: 1 1 auto; display: flex; min-height: 0; }
   pointer-events: none;
   user-select: none;
 }
+
+/* ── View bar ─────────────────────────────────────────────── */
+#viewbar {
+  position: absolute; top: 16px; left: 22px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 7px;
+  background: rgba(28, 28, 31, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.5);
+}
+.v-btn {
+  padding: 4px 10px; font-size: 11.5px; font-weight: 500;
+  color: var(--ink-2); background: transparent;
+  border: none; border-radius: 6px; cursor: pointer;
+  transition: background .14s ease, color .14s ease; white-space: nowrap;
+}
+.v-btn:hover { color: var(--ink); background: rgba(255,255,255,.07); }
+.v-btn.active { color: var(--ink); background: rgba(255,255,255,.13); }
 
 /* ── Transport (floating glass) ───────────────────────────── */
 #transport {
@@ -523,6 +544,30 @@ input[type=range]::-moz-range-thumb {
 }
 .check input { accent-color: var(--blue); width: 14px; height: 14px; cursor: pointer; }
 
+/* ── Trait reasoning + technology ─────────────────────────── */
+.adapt .why {
+  font-size: 11px; line-height: 1.45; color: var(--teal);
+  border-left: 2px solid rgba(100,210,255,.35); padding-left: 8px; margin: 2px 0;
+}
+.adapt .fx { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.adapt .fx li {
+  font-size: 10px; color: var(--ink-2); padding: 2px 7px;
+  background: rgba(255,255,255,.06); border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.tech-list { display: flex; flex-direction: column; gap: 8px; }
+.tech {
+  padding: 9px 11px; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.035); border: 1px solid var(--hairline);
+  border-left: 2px solid var(--ink-3);
+}
+.tech h4 { margin: 0 0 3px; font-size: 12px; font-weight: 600; }
+.tech p { margin: 0; font-size: 11px; line-height: 1.45; color: var(--ink-2); }
+.tech.weapon { border-left-color: var(--red); }
+.tech.next { border-left-color: var(--hairline); opacity: .65; }
+.tech.sup { border-left-color: var(--violet); }
+.tech.sup h4 { color: var(--violet); }
+
 /* ── Galaxy roster ────────────────────────────────────────── */
 .galaxy-list { display: flex; flex-direction: column; gap: 3px; }
 .gal-row {
@@ -589,6 +634,7 @@ input[type=range]::-moz-range-thumb {
 .log li.adapt    { color: var(--violet); font-weight: 550; }
 .log li.crisis   { color: #ff7a5c; font-weight: 550; }
 .log li.contact  { color: #7de3ff; font-weight: 600; }
+.log li.tech     { color: #9fe8ff; }
 
 /* ============================================================
    Advertising

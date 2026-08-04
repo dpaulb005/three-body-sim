@@ -16,7 +16,7 @@
  * designed so that swapping one in later only touches this file.
  */
 
-const CONSENT_KEY = 'demiurge.consent.v1';
+const CONSENT_KEY = 'heliurge.consent.v1';
 
 const Consent = {
   get value() {
@@ -47,7 +47,7 @@ const Consent = {
     el.innerHTML = `
       <div class="consent-text">
         <strong>Cookies &amp; advertising</strong>
-        <p>Demiurge is free and supported by ads. With your consent we and our
+        <p>Heliurge is free and supported by ads. With your consent we and our
         advertising partners use cookies to show and measure ads. Decline and
         the simulation still works exactly the same — you will simply see no
         ads. See our <a href="privacy.html">Privacy Policy</a>.</p>
