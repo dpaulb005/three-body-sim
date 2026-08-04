@@ -97,4 +97,75 @@ const PRESETS = [
       s.add(_planet(r, 0, 0, vCirc(3, r), 1e-6));
     },
   },
+
+  // ── Alien environments ─────────────────────────────────────────────────
+  // These differ from the ones above not in their orbits but in what the world
+  // physically IS. A profile changes the thermal buffering, the metabolic
+  // baseline and the radiation dose — so the same sky selects for very
+  // different biology.
+  {
+    name: 'Tidally Locked World',
+    blurb: 'One face always burning, one always frozen; life clings to the twilight ring. Close orbit means a heavy radiation dose.',
+    profile: { label: 'Tidally locked', tidalLocked: true, rotationOrbits: 1.0,
+               radiation: 0.55, hydrosphere: 'land', gravity: 0.95 },
+    build(world) {
+      const s = world.system;
+      s.add(_sun(0, 0, 0, 0, 0.55, 'Ember'));
+      // Very close in — which is why it locked in the first place.
+      const r = 2.5;
+      s.add(_planet(r, 0, 0, vCirc(0.55, r)));
+    },
+  },
+  {
+    name: 'High-Gravity World',
+    blurb: 'Three times Earth gravity. Everything is short, dense and immensely strong — and everything costs more to build and move.',
+    profile: { label: 'High gravity', gravity: 3.0, hydrosphere: 'land', radiation: 0.08 },
+    build(world) {
+      const s = world.system;
+      s.add(_sun(0, 0, 0, 0, 1.0, 'Sol'));
+      const r = CONFIG.refDistance;
+      s.add(_planet(r, 0, 0, vCirc(1.0, r)));
+    },
+  },
+  {
+    name: 'Ocean World',
+    blurb: 'A world of water under two suns. Enormous thermal mass smooths the chaos into something survivable — but there is no fire down there, and so no metallurgy.',
+    profile: { label: 'Ocean', hydrosphere: 'ocean', gravity: 1.1, radiation: 0.02 },
+    build(world) {
+      const s = world.system;
+      const m = 0.7, sep = 1.6, half = sep / 2;
+      const vrel = Math.sqrt(CONFIG.G * (2 * m) / sep) / 2;
+      s.add(_sun(-half, 0, 0, -vrel, m, 'Thal'));
+      s.add(_sun(half, 0, 0, vrel, m, 'Meri'));
+      const r = 4.3;
+      s.add(_planet(r, 0, 0, vCirc(2 * m, r)));
+    },
+  },
+  {
+    name: 'Rogue Planet',
+    blurb: 'No sun at all. Life survives kilometres beneath the ice, around geothermal vents, where the concepts of sky and star may never arise.',
+    profile: { label: 'Rogue / sub-glacial', hydrosphere: 'ice', geothermal: 0.72,
+               gravity: 1.0, radiation: 0.01 },
+    build(world) {
+      const s = world.system;
+      // A single distant, feeble star it is not bound to — effectively starless.
+      s.add(_sun(-46, 0, 0, 0, 0.35, 'a distant star'));
+      s.add(_planet(0, 0, 0.02, 0));
+    },
+  },
+  {
+    name: 'Flare Star',
+    blurb: 'A violent dwarf that erupts without warning. Radiation is relentless, so life either hardens against it or learns to disappear until it passes.',
+    profile: { label: 'Flare-irradiated', radiation: 0.85, gravity: 0.9,
+               hydrosphere: 'land' },
+    build(world) {
+      const s = world.system;
+      s.add(_sun(0, 0, 0, 0, 0.45, 'Kestrel'));
+      const r = 2.15;
+      s.add(_planet(r, 0, 0, vCirc(0.45, r)));
+      // A heavy companion on a wide eccentric path keeps stirring the system,
+      // producing the irregular flare-like swings in received flux.
+      s.add(_sun(9.5, 0, 0, 0.30, 0.30, 'Shrike'));
+    },
+  },
 ];

@@ -98,7 +98,8 @@
     <nav class="tabs" id="tabs">
       <button data-tab="cosmos" class="active">Cosmos</button>
       <button data-tab="life">Life</button>
-      <button data-tab="civ">Civilization</button>
+      <button data-tab="adapt">Traits</button>
+      <button data-tab="civ">Civ</button>
       <button data-tab="log">Chronicle</button>
     </nav>
 
@@ -217,6 +218,23 @@
         </div>
       </section>
 
+      <!-- ───── Adaptations ───── -->
+      <section class="pane" data-pane="adapt">
+        <div class="block">
+          <h3>World</h3>
+          <div id="world-profile" class="readout"></div>
+        </div>
+        <div class="block">
+          <h3>Divergent evolution</h3>
+          <div id="adapt-list" class="adapt-list"></div>
+        </div>
+        <div class="block">
+          <h3>Under pressure</h3>
+          <p class="note">Paths this world is currently pushing life toward. Only a few can ever emerge, and rivals in the same category exclude each other.</p>
+          <div id="adapt-pressure" class="adapt-list"></div>
+        </div>
+      </section>
+
       <!-- ───── Civilization ───── -->
       <section class="pane" data-pane="civ">
         <div class="block">
@@ -266,6 +284,8 @@
 <script src="js/utils.js"></script>
 <script src="js/physics.js"></script>
 <script src="js/climate.js"></script>
+<script src="js/environment.js"></script>
+<script src="js/adaptations.js"></script>
 <script src="js/evolution.js"></script>
 <script src="js/civilization.js"></script>
 <script src="js/presets.js"></script>
