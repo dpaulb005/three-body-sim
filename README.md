@@ -189,3 +189,61 @@ experiment — e.g. `DEMIURGE.CONFIG.dt = 0.02` to speed up time, or
 
 *Not to scale, and not a substitute for a real astrophysics or population-genetics
 code — but every knob is grounded in a real mechanism.*
+
+---
+
+## Running it as a website
+
+The project is plain static files — no build step, no server code — so any
+static host will serve it.
+
+### Deploying to GitHub Pages
+
+`.github/workflows/deploy.yml` publishes the repo root on every push. To turn
+it on: **Settings → Pages → Source → GitHub Actions**. The site then lives at
+`https://<user>.github.io/three-body-sim/`.
+
+All asset paths are relative, so it works from a subpath without changes. If
+you move it to your own domain, update the `canonical`/`og:url` tags in
+`index.html` and the URLs in `sitemap.xml` and `robots.txt`.
+
+### Advertising
+
+Ads are **off by default** and the site is fully functional without them.
+Everything is configured in one place, `js/ads.js`:
+
+```js
+const ADS = {
+  enabled: false,                 // ← flip to true once approved
+  provider: 'adsense',            // or 'custom' for any other network
+  client: 'ca-pub-XXXXXXXXXXXXXXXX',
+  slots: { rail: '1234567890' },  // ad unit IDs from your dashboard
+};
+```
+
+For a network that isn't AdSense, set `provider: 'custom'` and supply
+`customTag(placement, el)` returning that network's markup. Nothing else in the
+app needs to change.
+
+The implementation deliberately enforces three things:
+
+- **No layout shift.** Slots reserve their space in CSS, and an unfilled or
+  blocked slot collapses to nothing rather than leaving a grey hole. Verified:
+  the simulation canvas is pixel-identical before and after an ad loads.
+- **Nothing loads without consent.** `AdManager.init()` is reachable only from
+  the accept path in `js/consent.js`. Before consent — and forever, if the
+  visitor declines — zero ad requests are made and no ad cookies are set.
+- **No accidental clicks.** The slot sits in the inspector's scroll flow, well
+  clear of every control, and is labelled. Ad networks ban placements that
+  invite misclicks.
+
+### Consent & privacy
+
+`privacy.html` documents what is stored (only the consent choice, in
+`localStorage`) and how advertising data is handled. The banner in
+`js/consent.js` gates all ad code, and the footer's **Cookie settings** link
+lets a visitor change their mind at any time.
+
+This is a good-faith consent gate, not legal advice. For a large EU audience,
+ad networks generally expect a certified IAB TCF Consent Management Platform —
+the code is structured so swapping one in touches only `js/consent.js`.

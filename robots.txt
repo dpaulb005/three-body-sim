@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dpaulb005.github.io/three-body-sim/sitemap.xml

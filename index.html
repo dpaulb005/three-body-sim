@@ -3,7 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Demiurge</title>
+<title>Demiurge — Play God: N-Body Star Systems, Evolution &amp; Civilizations</title>
+<meta name="description" content="A free physics sandbox where you play god. Add suns to build chaotic multi-star systems like the one in The Three-Body Problem, then watch real natural selection evolve life — and civilizations rise, collapse into dark ages, and rebuild." />
+<link rel="canonical" href="https://dpaulb005.github.io/three-body-sim/" />
+<meta name="theme-color" content="#141416" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Demiurge — Play God with Suns, Life &amp; Civilizations" />
+<meta property="og:description" content="Build chaotic multi-sun systems, evolve life under real selection pressure, and watch civilizations climb and collapse. Free in your browser." />
+<meta property="og:url" content="https://dpaulb005.github.io/three-body-sim/" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -229,7 +240,23 @@
         <ul id="log" class="log"></ul>
       </section>
 
+      <!-- Ad slot lives in the scroll flow, after the controls: it reserves its
+           own space (so nothing shifts), is labelled, and sits well clear of
+           every interactive control so it can never catch a stray click. -->
+      <div class="ad-slot rail" data-ad="rail">
+        <span class="ad-tag">Advertisement</span>
+        <div class="ad-body"></div>
+      </div>
+
     </div>
+
+    <footer id="site-footer">
+      <a href="privacy.html">Privacy</a>
+      <span>·</span>
+      <a href="#" id="consent-reopen">Cookie settings</a>
+      <span>·</span>
+      <a href="https://github.com/dpaulb005/three-body-sim" target="_blank" rel="noopener">Source</a>
+    </footer>
   </aside>
 </main>
 
@@ -244,5 +271,8 @@
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
+<script src="js/ads.js"></script>
+<script src="js/consent.js"></script>
+<script>Consent.start();</script>
 </body>
 </html>
