@@ -281,7 +281,7 @@ body.paused .t-btn .ic-pause { display: none; }
   border-bottom: 1px solid var(--hairline-2);
 }
 .block:last-child { border-bottom: none; }
-.block.hidden { display: none; }
+.block.hidden, .field.hidden { display: none; }
 
 .block h3 {
   margin: 0 0 12px;
@@ -365,6 +365,14 @@ body.paused .t-btn .ic-pause { display: none; }
   color: var(--ink);
 }
 .field input[type=range] { grid-column: 1 / -1; margin-top: 8px; }
+.field select {
+  max-width: 145px;
+  padding: 4px 7px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+}
 
 /* ── Range inputs ─────────────────────────────────────────── */
 input[type=range] {
@@ -583,6 +591,7 @@ input[type=range]::-moz-range-thumb {
 .rel-ally    { color: var(--green); }
 .rel-wary    { color: var(--ink-2); }
 .rel-hostile { color: var(--red); }
+.rel-observing { color: var(--violet); }
 
 /* ── Civilisation switcher ────────────────────────────────── */
 .civ-switch { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }

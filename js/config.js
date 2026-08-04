@@ -2,18 +2,26 @@
  * config.js — Global tunable constants for the God Simulator.
  *
  * Everything the physics, climate and evolution models read lives here so the
- * whole simulation can be re-balanced from one place. Values are in abstract
- * "sim units": distance ~ AU, mass ~ solar masses, time ~ (2*pi units = one
- * orbit of a mass-1 body at distance 1). G is set to 1 so Kepler's third law
- * reads T = 2*pi*sqrt(a^3 / M).
+ * whole simulation can be re-balanced from one place. Physics uses canonical
+ * astronomical units: distance in AU, mass in solar masses, and time in
+ * years/(2*pi). G=1, so Kepler's third law reads T=2*pi*sqrt(a^3/M).
  */
 const CONFIG = {
   // ---- Gravitation / integration ----
   G: 1.0,                 // gravitational constant (sim units)
-  softening: 0.03,        // Plateau length eps: force uses (r^2 + eps^2)
+  softening: 0,           // exact Newtonian gravity; opt-in Plummer softening
   dt: 0.010,              // base timestep per simulation step
   substeps: 6,            // velocity-Verlet substeps per step (stability)
-  maxSpeed: 40,           // clamp to stop numeric blow-ups launching bodies to infinity
+  maxSubsteps: 96,        // close-encounter refinement cap
+  encounterResolution: 0.03, // max step as a fraction of local dynamical time
+
+  // ---- Physical unit conversions ----
+  solarMassKg: 1.98847e30,
+  earthMassKg: 5.9722e24,
+  earthMassInSolar: 3.0034896e-6,
+  solarRadiusAU: 0.00465047,
+  earthRadiusAU: 4.26352e-5,
+  earthDensity: 5.514,    // g/cm^3
 
   // ---- Rendering ----
   trailLength: 260,       // orbital trail sample count

@@ -75,6 +75,10 @@ class World {
     this._recordHot = -Infinity; this._recordCold = Infinity;
 
     preset.build(this);
+    // Eliminate artificial centre-of-mass drift while preserving every
+    // relative position and velocity defined by the preset.
+    this.system.recenter();
+    this.profile.syncPlanet(this.system.planet);
     // Prime the climate so temperature starts at equilibrium, not a cold start.
     this.climate.update(this.system, 0.0001, this.profile);
     if (seedLife) {
@@ -157,7 +161,7 @@ class World {
     const ev = this.system.mergeEvents;
     while (ev.length) {
       const m = ev.shift();
-      this.log(`Stars collided: ${m.survivor} absorbed ${m.absorbed}.`, 'cosmic');
+      this.log(`Collision: ${m.survivor} absorbed ${m.absorbed}.`, 'cosmic');
     }
   }
 
@@ -224,27 +228,22 @@ class World {
     this.log('A rogue mass drifts into the system.', 'cosmic');
     return b;
   }
+  addPlanet(x, y, vx, vy, massEarth = 1, composition = 'earth') {
+    const b = this.system.add(new Body({ x, y, vx, vy, massEarth, composition,
+      type: 'planet', name: this.system.planet ? 'planet' : 'the world' }));
+    if (b === this.system.planet) {
+      this.profile.syncPlanet(b);
+      // A world placed into an empty sandbox needs its climate primed.
+      this.climate.update(this.system, 0.0001, this.profile);
+    }
+    this.log(`A ${PLANET_COMPOSITIONS[composition]?.label || 'custom world'} coalesces (${massEarth.toFixed(1)} Earth masses).`, 'cosmic');
+    return b;
+  }
+
+  syncPlanetProfile() { this.profile.syncPlanet(this.system.planet); }
   _starName() {
     const names = ['Vega', 'Rigel', 'Mira', 'Lyra', 'Orin', 'Nova', 'Cygnus', 'Draco', 'Pyra', 'Zheng'];
     return names[Math.floor(RNG() * names.length)];
-  }
-
-  /** Drop a world at a given point, on a circular orbit if there is a star. */
-  addPlanet(x, y) {
-    const M = this.system.suns.reduce((s, b) => s + b.mass, 0);
-    const com = this.system.centerOfMass();
-    let vx = 0, vy = 0;
-    if (M > 0) {
-      const dx = x - com.x, dy = y - com.y;
-      const r = Math.hypot(dx, dy) || 1;
-      const v = Math.sqrt(CONFIG.G * M / r);
-      vx = -dy / r * v; vy = dx / r * v;   // perpendicular = circular
-    }
-    const b = this.system.add(new Body({ x, y, vx, vy, mass: 3e-5, type: 'planet', name: 'the world' }));
-    this.climate = new Climate();
-    this.climate.update(this.system, 0.0001, this.profile);
-    this.log('A world is placed.', 'cosmic');
-    return b;
   }
 
   /** Put a body onto a circular orbit about the system's centre of mass. */
@@ -269,7 +268,9 @@ class World {
     const com = this.system.centerOfMass();
     const M = this.system.suns.reduce((s, b) => s + b.mass, 0) || 1;
     const r = 6;
-    this.system.add(_planet(com.x + r, com.y, 0, vCirc(M, r)));
+    this.system.add(_planet(com.x + r, com.y, 0, vCirc(M, r, 1), 1, 'earth'));
+    this.system.recenter();
+    this.syncPlanetProfile();
     this.log('A new world coalesces.', 'cosmic');
   }
 }

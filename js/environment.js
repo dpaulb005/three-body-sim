@@ -22,6 +22,7 @@
 class WorldProfile {
   constructor(opts = {}) {
     // 1.0 = Earth-like unless noted.
+    this._gravityOverride = opts.gravity !== undefined;
     this.gravity = opts.gravity ?? 1.0;
     // Rotation period measured in orbits. >0.5 is effectively a world where a
     // "day" is longer than a season — or tidally locked, with no day at all.
@@ -36,6 +37,24 @@ class WorldProfile {
     // makes a sunless rogue planet survivable at all.
     this.geothermal = opts.geothermal ?? 0;
     this.label = opts.label ?? 'Terrestrial';
+    this.planetMassEarth = 1;
+    this.density = CONFIG.earthDensity;
+    this.radiusEarth = 1;
+    this._compositionBuffer = 1;
+  }
+
+  // Connect the environmental layer to the actual inhabited planet. Presets
+  // may override gravity for narrative edge cases; otherwise mass and density
+  // determine radius and surface gravity directly.
+  syncPlanet(planet) {
+    if (!planet || planet.type !== 'planet') return;
+    this.planetMassEarth = planet.massEarth;
+    this.density = planet.density;
+    this.radiusEarth = planet.radiusEarth;
+    if (!this._gravityOverride) this.gravity = planet.surfaceGravityG;
+    const water = planet.composition.water || 0;
+    const gas = planet.composition.gas || 0;
+    this._compositionBuffer = 1 + water * 1.8 + gas * 0.7;
   }
 
   // Higher gravity means a denser, sturdier build: stress is better tolerated
@@ -45,8 +64,9 @@ class WorldProfile {
 
   // Oceans buffer temperature swings; deep ice buffers even harder.
   get thermalBuffer() {
-    return this.hydrosphere === 'ocean' ? 2.6
+    const environment = this.hydrosphere === 'ocean' ? 2.6
       : this.hydrosphere === 'ice' ? 3.4 : 1;
+    return environment * this._compositionBuffer;
   }
 
   // The temperature life actually experiences, which is not the planetary mean.

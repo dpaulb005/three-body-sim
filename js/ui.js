@@ -9,6 +9,7 @@ class UI {
     this.renderer = renderer;
     this.bodyType = 'sun';
     this.placeMass = 1.0;
+    this.placeComposition = 'earth';
     this.drag = null;   // {startWorld, curWorld}
     this._build();
     this._bindPointer();
@@ -49,32 +50,50 @@ class UI {
     });
 
     // Body creation
+    for (const [key, value] of Object.entries(PLANET_COMPOSITIONS)) {
+      for (const id of ['in-composition', 'in-selcomposition']) {
+        const option = document.createElement('option');
+        option.value = key; option.textContent = value.label;
+        this.$(id).appendChild(option);
+      }
+    }
     this.$('body-type').querySelectorAll('button').forEach(btn => {
       btn.onclick = () => {
         this.bodyType = btn.dataset.type;
         this.$('body-type').querySelectorAll('button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        this._configurePlacement();
       };
     });
     this.$('in-mass').oninput = (e) => {
       this.placeMass = +e.target.value;
-      this.$('out-mass').textContent = this.placeMass.toFixed(2);
+      this.$('out-mass').textContent = this._massText(this.bodyType, this.placeMass);
     };
+    this.$('in-composition').onchange = (e) => { this.placeComposition = e.target.value; };
     this.$('btn-add-center').onclick = () => {
       const com = this.world.system.centerOfMass();
       const off = 2 + RNG() * 3;
       const ang = RNG() * Math.PI * 2;
       const x = com.x + Math.cos(ang) * off, y = com.y + Math.sin(ang) * off;
-      if (this.bodyType === 'sun') this.world.addSun(x, y, 0, 0, this.placeMass);
-      else if (this.bodyType === 'planet') this.world.addPlanet(x, y);
-      else this.world.addRogue(x, y, 0, 0, this.placeMass);
+      this._placeBody(x, y, 0, 0);
     };
 
     // Selected body editor
     this.$('in-selmass').oninput = (e) => {
       if (!this.renderer.selected) return;
-      this.renderer.selected.mass = +e.target.value;
-      this.$('out-selmass').textContent = (+e.target.value).toFixed(2);
+      const sel = this.renderer.selected;
+      if (sel.type === 'planet') sel.setMassEarth(+e.target.value);
+      else sel.setMassSolar(+e.target.value);
+      this.$('out-selmass').textContent = this._massText(sel.type, +e.target.value);
+      this.world.system._invalidateEnergy();
+      if (sel === this.world.system.planet) this.world.syncPlanetProfile();
+      this.refreshSelected();
+    };
+    this.$('in-selcomposition').onchange = (e) => {
+      const sel = this.renderer.selected;
+      if (!sel || sel.type !== 'planet') return;
+      sel.setComposition(e.target.value);
+      if (sel === this.world.system.planet) this.world.syncPlanetProfile();
       this.world.system._invalidateEnergy();
       this.refreshSelected();
     };
@@ -285,6 +304,33 @@ class UI {
     this.$('in-tidal').checked = !!p.tidalLocked;
   }
 
+  _configurePlacement() {
+    const input = this.$('in-mass');
+    if (this.bodyType === 'planet') {
+      input.min = 0.1; input.max = 1000; input.step = 0.1; this.placeMass = 1;
+    } else if (this.bodyType === 'sun') {
+      input.min = 0.08; input.max = 4; input.step = 0.01; this.placeMass = 1;
+    } else {
+      input.min = 0.01; input.max = 3; input.step = 0.01; this.placeMass = 0.1;
+    }
+    input.value = this.placeMass;
+    this.$('out-mass').textContent = this._massText(this.bodyType, this.placeMass);
+    this.$('place-composition').classList.toggle('hidden', this.bodyType !== 'planet');
+  }
+
+  _massText(type, value) {
+    return type === 'planet' ? `${value < 10 ? value.toFixed(1) : value.toFixed(0)} M⊕`
+      : `${value.toFixed(2)} M☉`;
+  }
+
+  _placeBody(x, y, vx, vy) {
+    if (this.bodyType === 'sun') return this.world.addSun(x, y, vx, vy, this.placeMass);
+    if (this.bodyType === 'planet') {
+      return this.world.addPlanet(x, y, vx, vy, this.placeMass, this.placeComposition);
+    }
+    return this.world.addRogue(x, y, vx, vy, this.placeMass);
+  }
+
   loadPreset(i) {
     const p = PRESETS[i];
     this.world.loadPreset(p);
@@ -318,12 +364,22 @@ class UI {
     const g = this.$('sel-group');
     if (!sel) { g.classList.add('hidden'); return; }
     g.classList.remove('hidden');
-    const lum = sel.type === 'sun' ? `, luminosity ${fmt.sci(sel.luminosity)}` : '';
+    const lum = sel.type === 'sun' ? ` · luminosity ${fmt.sci(sel.luminosity)}` : '';
+    const planet = sel.type === 'planet'
+      ? `<br>${PLANET_COMPOSITIONS[sel.compositionKey]?.label || 'Custom mixture'} · density ${sel.density.toFixed(2)} g/cm³ · radius ${sel.radiusEarth.toFixed(2)} R⊕ · gravity ${sel.surfaceGravityG.toFixed(2)}g`
+      : '';
+    const shownMass = sel.type === 'planet' ? sel.massEarth : sel.mass;
     this.$('sel-info').innerHTML =
-      `<b>${sel.name || sel.type}</b> — ${sel.type}<br>mass ${sel.mass.toFixed(2)}${lum}`;
+      `<b>${sel.name || sel.type}</b> — ${sel.type}<br>mass ${this._massText(sel.type, shownMass)}${lum}${planet}`;
     const sm = this.$('in-selmass');
-    sm.value = clamp(sel.mass, +sm.min, +sm.max);
-    this.$('out-selmass').textContent = sel.mass.toFixed(2);
+    if (sel.type === 'planet') { sm.min = 0.1; sm.max = 1000; sm.step = 0.1; }
+    else { sm.min = sel.type === 'sun' ? 0.08 : 0.01; sm.max = sel.type === 'sun' ? 4 : 3; sm.step = 0.01; }
+    sm.value = clamp(shownMass, +sm.min, +sm.max);
+    this.$('out-selmass').textContent = this._massText(sel.type, shownMass);
+    this.$('sel-composition').classList.toggle('hidden', sel.type !== 'planet');
+    if (sel.type === 'planet' && sel.compositionKey !== 'custom') {
+      this.$('in-selcomposition').value = sel.compositionKey;
+    }
     for (const [id, out, axis] of [['in-selvx', 'out-selvx', 'vx'], ['in-selvy', 'out-selvy', 'vy']]) {
       const el = this.$(id);
       el.value = clamp(sel[axis], +el.min, +el.max);
@@ -370,11 +426,7 @@ class UI {
       const s = this.drag.startWorld, c = this.drag.curWorld;
       const k = 0.5; // drag distance -> launch speed
       const vx = (c.x - s.x) * k, vy = (c.y - s.y) * k;
-      if (this.bodyType === 'sun') this.world.addSun(s.x, s.y, vx, vy, this.placeMass);
-      else if (this.bodyType === 'planet') {
-        const b = this.world.addPlanet(s.x, s.y);
-        if (vx || vy) { b.vx = vx; b.vy = vy; }
-      } else this.world.addRogue(s.x, s.y, vx, vy, this.placeMass);
+      this._placeBody(s.x, s.y, vx, vy);
       this.drag = null;
       this.renderer.ghost = null;
     };
@@ -417,8 +469,17 @@ class UI {
     this.renderer.ghost = {
       x: s.x, y: s.y,
       vx: (c.x - s.x) * k, vy: (c.y - s.y) * k,
-      mass: this.placeMass, type: this.bodyType,
-      get radius() { return this.type === 'sun' ? 0.22 + 0.32 * Math.cbrt(this.mass) : 0.18; },
+      mass: this.bodyType === 'planet' ? this.placeMass * CONFIG.earthMassInSolar : this.placeMass,
+      massEarth: this.placeMass, type: this.bodyType, composition: this.placeComposition,
+      get radius() {
+        if (this.type === 'sun') return 0.22 + 0.32 * Math.cbrt(this.mass);
+        if (this.type === 'planet') {
+          const density = PLANET_COMPOSITIONS[this.composition].density;
+          const radiusEarth = Math.cbrt(this.massEarth * CONFIG.earthDensity / density);
+          return 0.13 + 0.05 * Math.cbrt(radiusEarth);
+        }
+        return 0.18 + 0.12 * Math.cbrt(this.mass);
+      },
     };
   }
 
@@ -614,8 +675,10 @@ class UI {
           const a = g.worlds.find(w => w.id === c.a), b = g.worlds.find(w => w.id === c.b);
           if (!a || !b) return '';
           const rel = a.relations.get(b.id) || 'wary';
-          return `<div class="r-row"><span class="k">${a.starName} ↔ ${b.starName}</span>` +
-            `<span class="v rel-${rel}">${rel}</span></div>`;
+          const arrow = c.kind === 'observed' ? '→' : '↔';
+          const label = c.kind === 'observed' && rel === 'observing' ? 'watching, unseen' : rel;
+          return `<div class="r-row"><span class="k">${a.starName} ${arrow} ${b.starName}</span>` +
+            `<span class="v rel-${rel}">${label}</span></div>`;
         }).join('')
       : `<p class="adapt-empty">No world has heard another. Most never do.</p>`;
   }

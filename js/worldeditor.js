@@ -41,6 +41,10 @@ class WorldEditor {
   // ---- live edits ----
   set(key, value) {
     this.world.profile[key] = value;
+    // Gravity is normally derived from the planet's mass and composition.
+    // An explicit edit here claims the override so syncPlanet stops
+    // overwriting it on the next physics sync.
+    if (key === 'gravity') this.world.profile._gravityOverride = true;
     // Changing the world changes which futures are reachable, so the measured
     // signature and any pressure toward an adaptation are no longer valid.
     this.world.signature = new Signature();
@@ -106,6 +110,7 @@ class WorldEditor {
   randomise() {
     const p = this.world.profile;
     p.gravity = +(0.4 + RNG() * 2.6).toFixed(2);
+    p._gravityOverride = true;
     p.radiation = +(RNG() * RNG()).toFixed(2);          // biased low, occasionally brutal
     p.geothermal = RNG() < 0.25 ? +(0.4 + RNG() * 0.5).toFixed(2) : 0;
     p.rotationOrbits = RNG() < 0.25 ? +(0.2 + RNG() * 1.2).toFixed(3) : 0.003;

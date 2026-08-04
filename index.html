@@ -133,6 +133,10 @@
             <output id="out-mass">1.00</output>
             <input id="in-mass" type="range" min="0.1" max="3" step="0.05" value="1" />
           </div>
+          <div class="field hidden" id="place-composition">
+            <label for="in-composition">Makeup</label>
+            <select id="in-composition"></select>
+          </div>
           <button id="btn-add-center" class="btn">Place at rest</button>
           <p class="note">Or drag anywhere on the cosmos to launch one with velocity.</p>
         </div>
@@ -144,6 +148,10 @@
             <label for="in-selmass">Mass</label>
             <output id="out-selmass"></output>
             <input id="in-selmass" type="range" min="0.05" max="4" step="0.05" />
+          </div>
+          <div class="field hidden" id="sel-composition">
+            <label for="in-selcomposition">Makeup</label>
+            <select id="in-selcomposition"></select>
           </div>
           <div class="field">
             <label for="in-selvx">Velocity X</label>
