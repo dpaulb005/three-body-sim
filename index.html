@@ -252,6 +252,14 @@
       <!-- ───── World / Species ───── -->
       <section class="pane" data-pane="adapt">
         <div class="block">
+          <h3>This world <span class="hint-inline" id="world-kind"></span></h3>
+          <canvas id="worldmap" title="The planet, band by band. Colour is the biome each band's own temperature produces; yellow marks the bands this species can actually live in."></canvas>
+          <p class="note" id="world-zone"></p>
+          <div id="world-biomes" class="biome-bar"></div>
+          <div id="world-attrs" class="readout"></div>
+        </div>
+
+        <div class="block">
           <h3>Species</h3>
           <div id="dossier"></div>
         </div>
@@ -366,6 +374,7 @@
 <script src="js/physics.js"></script>
 <script src="js/climate.js"></script>
 <script src="js/environment.js"></script>
+<script src="js/geography.js"></script>
 <script src="js/adaptations.js"></script>
 <script src="js/evolution.js"></script>
 <script src="js/technology.js"></script>

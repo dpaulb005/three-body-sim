@@ -146,7 +146,7 @@ run('planet makeup determines density, radius, and surface gravity', () => {
 });
 
 run('every browser preset loads and advances with coherent planet properties', () => {
-  for (const file of ['js/utils.js', 'js/climate.js', 'js/environment.js',
+  for (const file of ['js/utils.js', 'js/climate.js', 'js/environment.js', 'js/geography.js',
     'js/adaptations.js', 'js/evolution.js', 'js/technology.js',
     'js/civilization.js', 'js/species.js', 'js/presets.js', 'js/world.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
@@ -194,4 +194,5 @@ run('five-body physics has ample 60 FPS headroom', () => {
     `physics throughput ${Math.round(stepsPerSecond)} steps/s is below the 5000 target`);
 });
 
-console.log('All physics tests passed.');
+if (process.exitCode) console.error('\nSome physics tests FAILED.');
+else console.log('All physics tests passed.');

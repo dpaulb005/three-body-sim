@@ -515,6 +515,27 @@ input[type=range]::-moz-range-thumb {
 .adapt .track > i { display: block; height: 100%; background: var(--ink-3); }
 .adapt-empty { font-size: 12px; color: var(--ink-3); }
 
+/* ── The world map ────────────────────────────────────────── */
+#worldmap {
+  width: 100%; height: 214px; display: block;
+  border-radius: var(--radius-sm);
+  background: radial-gradient(120% 120% at 30% 20%, #0b0e18 0%, #05060d 100%);
+  margin-bottom: 8px;
+}
+/* Proportions of the surface, as one stacked bar. */
+.biome-bar {
+  display: flex; height: 7px; margin: 8px 0 10px;
+  border-radius: 4px; overflow: hidden; background: var(--hairline);
+}
+.biome-bar > i { display: block; min-width: 2px; }
+/* Section headings inside a readout, so a long attribute list stays scannable. */
+.r-head {
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); margin: 12px 0 4px;
+  padding-bottom: 3px; border-bottom: 1px solid var(--hairline);
+}
+.r-head:first-child { margin-top: 0; }
+
 /* ── Species dossier ──────────────────────────────────────── */
 .dossier h4 {
   font-family: var(--font-display);

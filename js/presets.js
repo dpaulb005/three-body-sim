@@ -159,9 +159,12 @@ const PRESETS = [
                radiation: 0.01 },
     build(world) {
       const s = world.system;
-      // A single distant, feeble star it is not bound to — effectively starless.
-      s.add(_sun(-46, 0, 0, 0, 0.35, 'a distant star'));
-      s.add(_planet(0, 0, 0.02, 0, 13.5, 'ice'));
+      // Genuinely starless. There used to be a distant sun here, placed to be
+      // "one it is not bound to" — but it was bound: at 46 AU from a 0.35-mass
+      // star the escape velocity is 0.12, and the planet was given 0.02. It
+      // spent every long run falling in, and eventually merged with the star.
+      // A rogue with nothing to fall into cannot make that mistake.
+      s.add(_planet(0, 0, 0, 0, 13.5, 'ice'));
     },
   },
   {

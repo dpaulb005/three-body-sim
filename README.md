@@ -207,9 +207,49 @@ gravity, hydrosphere, rotation, radiation, internal heat:
 - **Flare Star** — relentless radiation; harden against it or learn to vanish.
 
 Crucially, the temperature that matters is the one in the **niche**, not the
-planetary mean. A rogue planet's surface sits at −204 °C while its sub-glacial
+planetary mean. A rogue planet's surface sits at −260 °C while its sub-glacial
 ocean holds near 0 °C — so it is a permanently habitable world with a
 100% sunless sky.
+
+### The world as a place, not a number
+
+A planet is not one temperature. Earth's mean is 15 °C and almost nobody lives
+at 15 °C — people live in a band, and the band moves. So every world is divided
+into **15 equal-area bands**, each with its own climate:
+
+| | |
+|---|---|
+| **Geometry** | bands are cut at uniform intervals of sin(latitude), which is exactly equal area on a sphere — and which makes them equal-height stripes under the orthographic projection the globe is drawn in |
+| **Insolation** | the annual-mean sunlight at each latitude, integrated numerically from the standard daily-insolation formula `(1/π)(H sinφ sinδ + cosφ cosδ sin H)` over one orbit |
+| **Redistribution** | heat diffuses between neighbouring bands — the transport term of an energy-balance model, relaxed by repeated neighbour-averaging, which is how those models are actually solved |
+| **Tidal lock** | a locked world has no meaningful latitude, so the bands become rings of angular distance from the substellar point instead |
+
+The consequences are the point. A world 40 °C hotter than ours is not sterile —
+its tropics are, and its poles are Mediterranean. A world 30 °C colder keeps its
+equator. **Axial tilt** decides which: at 0° the poles never thaw, and past
+about 54° they receive *more* annual sunlight than the equator does, which is
+real physics and is why Uranus is strange.
+
+Calibration is against our own world — bare rock at Earth's tilt runs about
++36 °C at the equator and −7 °C at the poles, and oceans flatten that by more
+than half, which is why Earth's gradient is 55° rather than the ~100° a dry
+Earth would have.
+
+Everything downstream reads it. **How much of a world is habitable is now a
+measured area** rather than a proxy, and it feeds the carrying capacity
+directly: a world liveable only in a twilight ring genuinely holds fewer people.
+The temperature life experiences is the area-weighted mean of the bands life can
+actually occupy. And the map in the **World** tab is drawn from those same
+numbers, so it cannot disagree with the simulation — if it shows ice down to the
+tropics, those bands are genuinely below freezing and the population genuinely
+cannot live there.
+
+The tab also exposes what the planet physically *is*, all of it derived rather
+than stored: mass, radius and density give surface gravity; gravity and
+temperature give escape velocity and hence whether the world keeps an atmosphere
+at all (Jeans escape, calibrated so Earth reads 1 bar and our Moon reads
+nothing); the orbit gives the year by Kepler's third law, and the year gives the
+length of a day.
 
 ### Measured divergence
 
@@ -378,6 +418,7 @@ js/utils.js         RNG, math, colour, history ring-buffer
 js/physics.js       Body + NBodySystem (velocity-Verlet integrator)
 js/climate.js       flux → temperature → era classification
 js/environment.js   world profile + the running signature of what a world IS
+js/geography.js     latitude bands, insolation, heat diffusion, habitable area
 js/adaptations.js   the 21 divergent evolutionary roads, and their gates
 js/evolution.js     Creature genome + Population selection model
 js/technology.js    branches, affinity, prohibition, telos, Kardashev scale

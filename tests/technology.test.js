@@ -204,4 +204,5 @@ run('every technology is reachable — no orphaned prerequisites', () => {
   }
 });
 
-console.log('All technology tests passed.');
+if (process.exitCode) console.error('\nSome technology tests FAILED.');
+else console.log('All technology tests passed.');

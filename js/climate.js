@@ -25,6 +25,7 @@ class Climate {
     this.flux = 0;            // total absorbed flux at the planet
     this.era = ERA.STABLE;
     this.productivity = 0.5;  // [0,1] biological energy availability
+    this.habitableFraction = 1; // share of the surface anything could live on
     this._initialised = false;
   }
 
@@ -60,12 +61,12 @@ class Climate {
     // What the biosphere actually experiences in its niche.
     this.habitatTempC = profile ? profile.habitatTempC(this.tempC) : this.tempC;
 
-    this._classify(system);
+    this._classify();
     this._productivity(profile);
     return this.tempC;
   }
 
-  _classify(system) {
+  _classify() {
     const [lo, hi] = CONFIG.stableBandC;
     const t = this.habitatTempC;
     if (t < lo) {
@@ -80,10 +81,63 @@ class Climate {
 
   get isStable() { return this.era === ERA.STABLE; }
 
+  /*
+   * Second pass, once the world's geography is known.
+   *
+   * The temperature that matters to a biosphere is the temperature of the
+   * places it can actually occupy, not the average of the whole globe — and on
+   * a world with a strong gradient those are very different numbers. A planet
+   * whose mean is -30°C but whose tropics sit at 12°C is not a dead world; it
+   * is a world where everyone lives near the equator.
+   *
+   * So the niche is the area-weighted mean of the habitable bands. If nothing
+   * is habitable, it falls back to the least hostile band there is, which is
+   * what life would be clinging to if it were clinging to anything.
+   */
+  applyNiche(geo, profile) {
+    if (!geo || !geo.bands.length) return;
+    let sum = 0, area = 0;
+    for (const b of geo.bands) {
+      if (!b.habitable) continue;
+      sum += b.habitatC * b.area;
+      area += b.area;
+    }
+    if (area > 0) {
+      this.habitatTempC = sum / area;
+    } else {
+      // Nowhere is survivable. Report the closest thing to survivable there is,
+      // so the shortfall is visible rather than averaged into meaninglessness.
+      let best = geo.bands[0], bestGap = Infinity;
+      const mid = (CONFIG.stableBandC[0] + CONFIG.stableBandC[1]) / 2;
+      for (const b of geo.bands) {
+        const gap = Math.abs(b.habitatC - mid);
+        if (gap < bestGap) { bestGap = gap; best = b; }
+      }
+      this.habitatTempC = best.habitatC;
+    }
+    this.habitableFraction = geo.habitableFraction;
+    this._classify();
+    this._productivity(profile);
+  }
+
+  /*
+   * Sunlight reaching the planet, expressed against Earth's. The simulation's
+   * flux is in calibrated units, but the calibration is anchored to a world at
+   * 288 K — so the ratio to that reference is a real, comparable number, and
+   * 1361 W/m^2 is the real solar constant it corresponds to.
+   */
+  get insolationEarths() {
+    const refAbs = CONFIG.lumPerMass /
+      (4 * Math.PI * (CONFIG.refDistance * CONFIG.refDistance)) * (1 - CONFIG.albedo);
+    return this.flux / refAbs;
+  }
+  get insolationWm2() { return this.insolationEarths * 1361; }
+
   // Biological productivity: peaks near comfort temp AND needs adequate light.
   _productivity(profile = null) {
-    const base = profile ? profile.habitatTempC(this.tempC) : this.tempC;
-    const dT = (base - CONFIG.comfortC) / CONFIG.comfortWidthC;
+    // Always the niche temperature, never the planetary mean — this runs again
+    // after the geography is known, and must not undo what that established.
+    const dT = (this.habitatTempC - CONFIG.comfortC) / CONFIG.comfortWidthC;
     const tempFactor = Math.exp(-dT * dT);
     // Light factor saturates: more light helps up to a point, then heat hurts
     // (already captured by tempFactor). Normalise against reference flux.

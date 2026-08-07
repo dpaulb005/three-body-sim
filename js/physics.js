@@ -31,6 +31,23 @@ const PLANET_COMPOSITIONS = Object.freeze({
   gas:   { label: 'Gas giant', density: 1.3, fractions: { silicate: 0.03, water: 0.07, gas: 0.90 } },
 });
 
+/*
+ * A readable name for any mixture, including ones nobody named. A custom blend
+ * is described by whatever dominates it, because "60% water" is a more useful
+ * thing to be told than "custom".
+ */
+function compositionLabel(body) {
+  if (!body) return '—';
+  const named = PLANET_COMPOSITIONS[body.compositionKey];
+  if (named) return named.label;
+  const parts = Object.entries(body.composition || {})
+    .filter(([, v]) => v > 0.02).sort((a, b) => b[1] - a[1]);
+  if (!parts.length) return 'Mixed';
+  const [key, frac] = parts[0];
+  const noun = { iron: 'iron', silicate: 'rock', water: 'ice and water', gas: 'gas' }[key] || key;
+  return `${Math.round(frac * 100)}% ${noun}`;
+}
+
 function normaliseComposition(composition = 'earth') {
   const source = typeof composition === 'string'
     ? (PLANET_COMPOSITIONS[composition] || PLANET_COMPOSITIONS.earth).fractions

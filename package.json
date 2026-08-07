@@ -2,6 +2,6 @@
   "name": "demiurge-simulator",
   "private": true,
   "scripts": {
-    "test": "node tests/physics.test.js && node tests/technology.test.js"
+    "test": "node tests/physics.test.js && node tests/world.test.js && node tests/technology.test.js"
   }
 }

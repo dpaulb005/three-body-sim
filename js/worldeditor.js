@@ -21,6 +21,8 @@ const WORLD_FIELDS = [
     hint: 'A floor under food and temperature. Enough of it makes a sunless world liveable.' },
   { key: 'rotationOrbits', label: 'Rotation period', min: 0.003, max: 1.5, step: 0.005, unit: ' orb',
     hint: 'A very long day selects for slow, near-perfect thought.' },
+  { key: 'obliquityDeg', label: 'Axial tilt', min: 0, max: 90, step: 1, unit: '°', dp: 0,
+    hint: 'Where the liveable band sits. At 0° the poles never thaw; past 54° they get more sun than the equator.' },
 ];
 
 const HYDRO = [
@@ -68,6 +70,7 @@ class WorldEditor {
       r: +p.radiation.toFixed(2),
       t: +p.geothermal.toFixed(2),
       o: +p.rotationOrbits.toFixed(3),
+      x: +p.obliquityDeg.toFixed(1),
       h: p.hydrosphere,
       l: p.tidalLocked ? 1 : 0,
       n: p.label,
@@ -94,6 +97,7 @@ class WorldEditor {
       if (typeof d.r === 'number') p.radiation = clamp(d.r, 0, 1);
       if (typeof d.t === 'number') p.geothermal = clamp(d.t, 0, 1);
       if (typeof d.o === 'number') p.rotationOrbits = clamp(d.o, 0.003, 1.5);
+      if (typeof d.x === 'number') p.obliquityDeg = clamp(d.x, 0, 90);
       if (typeof d.h === 'string' && HYDRO.some(x => x.v === d.h)) p.hydrosphere = d.h;
       p.tidalLocked = !!d.l;
       if (typeof d.n === 'string') p.label = d.n.slice(0, 40);
@@ -114,6 +118,9 @@ class WorldEditor {
     p.radiation = +(RNG() * RNG()).toFixed(2);          // biased low, occasionally brutal
     p.geothermal = RNG() < 0.25 ? +(0.4 + RNG() * 0.5).toFixed(2) : 0;
     p.rotationOrbits = RNG() < 0.25 ? +(0.2 + RNG() * 1.2).toFixed(3) : 0.003;
+    // Biased toward modest tilts, because that is where most worlds sit — but
+    // occasionally a world lying on its side, which changes everything.
+    p.obliquityDeg = RNG() < 0.18 ? +(55 + RNG() * 35).toFixed(0) : +(RNG() * 35).toFixed(0);
     p.hydrosphere = HYDRO[Math.floor(RNG() * HYDRO.length)].v;
     p.tidalLocked = RNG() < 0.2;
     p.label = 'Uncharted';

@@ -18,6 +18,7 @@ class Renderer {
     this.cosmos = this._setup('cosmos');
     this.surface = this._setup('surface');
     this.graphs = this._setup('graphs');
+    this.worldmap = this._setup('worldmap');
 
     this.cam = { x: 0, y: 0, scale: CONFIG.pixelsPerUnit, mode: 'planet' };
     this._camInit = false;
@@ -38,7 +39,7 @@ class Renderer {
   }
 
   _resizeAll() {
-    for (const s of [this.cosmos, this.surface, this.graphs]) this._resize(s);
+    for (const s of [this.cosmos, this.surface, this.graphs, this.worldmap]) this._resize(s);
     this._buildStarfield();
   }
 
@@ -204,6 +205,9 @@ class Renderer {
     this._drawCosmos();
     this._drawSurface();
     this._drawGraphs();
+    // The globe only matters when it is on screen, and it is the most
+    // expensive thing here per pixel, so skip it while the tab is hidden.
+    if (this.worldmap.canvas.offsetParent !== null) this._drawWorldMap();
   }
 
   _drawCosmos() {
@@ -445,6 +449,190 @@ class Renderer {
       const dark = civ.collapses ? `  ·  ${civ.collapses} dark age${civ.collapses === 1 ? '' : 's'}` : '';
       ctx.fillText(`knowledge ${fmt.int(civ.knowledge)}${dark}`, w - 12, h - 9);
     }
+  }
+
+  /*
+   * ── The world itself ───────────────────────────────────────────────────
+   *
+   * Drawn straight off the Geography's bands, so the map cannot disagree with
+   * the simulation: if the picture shows ice down to the tropics, it is because
+   * those bands are genuinely below freezing and the population genuinely
+   * cannot live there.
+   *
+   * Two projections, because two kinds of world:
+   *   a spinning world is banded by LATITUDE, so it is drawn side-on with the
+   *   equator across the middle and equal-area bands falling out as equal-height
+   *   stripes — which is a real property of the orthographic projection, not a
+   *   convenience;
+   *   a tidally locked world has no meaningful latitude, so it is banded by
+   *   angle from the substellar point and drawn with the star to the left, which
+   *   puts the scorched face, the twilight ring and the frozen night side all in
+   *   one picture.
+   */
+  _drawWorldMap() {
+    // A canvas measured while its tab was hidden has no size at all, so check
+    // that what we think we are drawing into still matches the page.
+    const rect = this.worldmap.canvas.getBoundingClientRect();
+    if (Math.abs(rect.width - this.worldmap.w) > 0.5 || Math.abs(rect.height - this.worldmap.h) > 0.5) {
+      this._resize(this.worldmap);
+    }
+    const { ctx, w, h } = this.worldmap;
+    const world = this.world;
+    if (!(w > 0) || !(h > 0)) return;
+    ctx.clearRect(0, 0, w, h);
+    if (!world) return;
+    const geo = world.geography, prof = world.profile;
+    if (!geo || !geo.bands.length) return;
+
+    // Nudged down so the legend's caption has room above it.
+    const R = Math.min(h * 0.42, w * 0.30);
+    const cx = w * 0.30, cy = h * 0.54;
+    const n = geo.n;
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+    // Bands. Equal-area in the model means equal-width on the disc.
+    for (let i = 0; i < n; i++) {
+      const b = geo.bands[i];
+      const c = BIOME_COLOR[b.biome] || [110, 110, 110];
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      if (geo.locked) {
+        // Substellar on the LEFT, antistellar on the right, matching the order
+        // the legend beside it reads in.
+        const x0 = cx - R * (1 - 2 * (i + 1) / n);
+        const x1 = cx - R * (1 - 2 * i / n);
+        ctx.fillRect(Math.min(x0, x1) - 0.5, cy - R - 1, Math.abs(x1 - x0) + 1, R * 2 + 2);
+      } else {
+        // sin(latitude) runs -1 (south) to +1 (north); screen y is inverted.
+        const y0 = cy - R * (-1 + 2 * (i + 1) / n);
+        const y1 = cy - R * (-1 + 2 * i / n);
+        ctx.fillRect(cx - R - 1, Math.min(y0, y1) - 0.5, R * 2 + 2, Math.abs(y1 - y0) + 1);
+      }
+    }
+
+    // Mottling so a band reads as terrain rather than as a paint chip. Seeded
+    // from the world so it is stable frame to frame.
+    const rng = makeRNG(0x3A17 + Math.round(prof.gravity * 97) + prof.hydrosphere.length * 31);
+    // Light enough that it reads as terrain without washing out the bands,
+    // which are the actual information here.
+    ctx.globalAlpha = 0.07;
+    for (let i = 0; i < 70; i++) {
+      const a = rng() * Math.PI * 2, d = Math.sqrt(rng()) * R;
+      const px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
+      ctx.fillStyle = rng() < 0.5 ? '#000' : '#fff';
+      ctx.beginPath(); ctx.ellipse(px, py, R * 0.10, R * 0.05, rng() * Math.PI, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Night. A locked world's dark side is permanent and huge; a spinning
+    // world's is a moving terminator, so it is only a hint of shading.
+    const night = ctx.createLinearGradient(cx - R, 0, cx + R, 0);
+    if (geo.locked) {
+      night.addColorStop(0, 'rgba(0,0,0,0)');
+      night.addColorStop(0.46, 'rgba(0,0,0,0.05)');
+      night.addColorStop(0.62, 'rgba(2,4,12,0.62)');
+      night.addColorStop(1, 'rgba(2,4,12,0.86)');
+    } else {
+      night.addColorStop(0, 'rgba(2,4,12,0.44)');
+      night.addColorStop(0.4, 'rgba(0,0,0,0.06)');
+      night.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    ctx.fillStyle = night; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+
+    /*
+     * Where the people actually are. Scattered rather than ranked, because a
+     * band is a band and not a row of pins — and seeded, so a settlement does
+     * not jitter from frame to frame while you are looking at it.
+     */
+    const settled = geo.settledBands();
+    if (world.population.headcount >= 1 && settled.length) {
+      const prng = makeRNG(0x50C1A1 + settled.length * 31);
+      ctx.fillStyle = 'rgba(255, 214, 10, 0.92)';
+      for (const b of settled) {
+        // The projected half-width of this band on the disc: narrow at the
+        // poles, widest at the equator, exactly as a sphere would give you.
+        const along = geo.locked ? b.cosTheta : b.sinLat;
+        const halfSpan = Math.sqrt(Math.max(0, 1 - along * along));
+        const dots = Math.max(2, Math.round(9 * halfSpan));
+        for (let k = 0; k < dots; k++) {
+          const off = (prng() * 2 - 1) * R * halfSpan * 0.86;
+          const jitter = (prng() * 2 - 1) * (R / n) * 0.7;
+          const px = geo.locked ? cx - R * along + jitter : cx + off;
+          const py = geo.locked ? cy + off : cy - R * along + jitter;
+          ctx.beginPath(); ctx.arc(px, py, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+
+    // Aurora, where the particle flux is high enough to light the poles.
+    if (prof.radiation > 0.25 && !geo.locked) {
+      const a = clamp((prof.radiation - 0.25) * 0.9, 0, 0.5);
+      for (const sign of [-1, 1]) {
+        const g = ctx.createRadialGradient(cx, cy - sign * R * 0.92, 1, cx, cy - sign * R * 0.92, R * 0.55);
+        g.addColorStop(0, `rgba(120, 255, 190, ${a.toFixed(2)})`);
+        g.addColorStop(1, 'rgba(120, 255, 190, 0)');
+        ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      }
+    }
+
+    // Sphericity: darken the limb so it reads as a ball and not a coin.
+    const limb = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R);
+    limb.addColorStop(0, 'rgba(255,255,255,0.10)');
+    limb.addColorStop(0.62, 'rgba(0,0,0,0)');
+    limb.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = limb; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    ctx.restore();
+
+    // Atmospheric halo, thick or thin according to what this world can hold.
+    const air = clamp(prof.surfacePressureBar(world.climate.tempC), 0, 3);
+    if (air > 0.05) {
+      const halo = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * (1.02 + 0.10 * clamp(air, 0, 1.6)));
+      halo.addColorStop(0, `rgba(150, 200, 255, ${(0.16 * clamp(air, 0, 1.5)).toFixed(3)})`);
+      halo.addColorStop(1, 'rgba(150, 200, 255, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 1.16, 0, Math.PI * 2); ctx.fill();
+    }
+
+    this._drawBandScale(ctx, w, h, geo, cx, cy, R);
+  }
+
+  // The legend: every band, its temperature, and whether anyone is living there.
+  _drawBandScale(ctx, w, h, geo, cx, cy, R) {
+    const n = geo.n;
+    const left = cx + R + 26;
+    const right = w - 12;
+    if (right - left < 90) return;
+    const top = cy - R, rowH = (R * 2) / n;
+
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < n; i++) {
+      // Screen order must match the globe: north at the top, substellar first.
+      const b = geo.bands[geo.locked ? i : n - 1 - i];
+      const y = top + rowH * i;
+      const c = BIOME_COLOR[b.biome] || [110, 110, 110];
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      ctx.fillRect(left, y + 0.5, 10, Math.max(rowH - 1.2, 1));
+
+      if (rowH >= 8) {
+        ctx.font = '500 9px ' + FONT;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = b.settled ? 'rgba(255,214,10,0.95)'
+          : b.habitable ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.34)';
+        const where = geo.locked
+          ? `${geo.angleOf(b).toFixed(0)}°`
+          : `${Math.abs(geo.latitudeOf(b)).toFixed(0)}°${b.sinLat >= 0 ? 'N' : 'S'}`;
+        ctx.fillText(where.padStart(4), left + 15, y + rowH / 2);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${b.tempC.toFixed(0)}°C`, Math.min(left + 78, right), y + rowH / 2);
+      }
+    }
+
+    // A caption that says what kind of world this is in one line.
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 9.5px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText(geo.locked ? 'SUBSTELLAR → ANTISTELLAR' : 'NORTH → SOUTH', left, top - 8);
   }
 
   // ── Biome + scenery ─────────────────────────────────────────────────────

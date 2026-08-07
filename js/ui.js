@@ -28,6 +28,9 @@ class UI {
         btn.classList.add('active');
         document.querySelectorAll('.pane').forEach(p =>
           p.classList.toggle('active', p.dataset.pane === btn.dataset.tab));
+        // Canvases inside a hidden pane measure as zero, so anything that just
+        // became visible needs measuring again before it is drawn into.
+        this.renderer._resizeAll();
       };
     });
 
@@ -299,7 +302,8 @@ class UI {
       const el = this.$(`wf-${f.key}`), out = this.$(`wo-${f.key}`);
       if (!el) continue;
       el.value = p[f.key];
-      out.textContent = f.pct ? fmt.pct(p[f.key]) : p[f.key].toFixed(2) + (f.unit || '');
+      out.textContent = f.pct ? fmt.pct(p[f.key])
+        : p[f.key].toFixed(f.dp === undefined ? 2 : f.dp) + (f.unit || '');
     }
     this.$('hydro').querySelectorAll('button').forEach(b =>
       b.classList.toggle('active', b.dataset.h === p.hydrosphere));
@@ -621,21 +625,114 @@ class UI {
       </div>`;
   }
 
-  // Which evolutionary roads this world has taken, and which it is pushing toward.
-  updateAdaptations() {
-    const w = this.world, prof = w.profile, sig = w.signature;
-    const row = (k, v) => `<div class="r-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
-    if (this.$('world-profile')) this.$('world-profile').innerHTML =
-      row('Type', prof.label) +
-      row('Gravity', `${prof.gravity.toFixed(2)}g`) +
-      row('Surface', fmt.temp(w.climate.tempC)) +
-      (Math.abs(w.climate.habitatTempC - w.climate.tempC) > 1.5
-        ? row('Habitat niche', fmt.temp(w.climate.habitatTempC)) : '') +
-      row('Radiation', fmt.pct(prof.radiation)) +
-      (prof.geothermal > 0 ? row('Geothermal', fmt.pct(prof.geothermal)) : '') +
+  /*
+   * The world panel: what this planet physically IS, and what that makes it
+   * like to stand on. Everything here is derived from the bodies in the
+   * simulation — mass and makeup give radius and gravity, gravity and
+   * temperature give whether it keeps an atmosphere, the orbit gives the year
+   * and hence the day. Nothing is a stored decoration.
+   */
+  _updateWorldPanel(w, prof, sig, row) {
+    const geo = w.geography, clim = w.climate, planet = w.system.planet;
+    if (!this.$('world-attrs')) return;
+
+    const kindEl = this.$('world-kind');
+    if (kindEl) {
+      // The preset's own label often already says these things, so only add
+       // what it has not said.
+      const said = prof.label.toLowerCase();
+      kindEl.textContent = [
+        prof.label,
+        prof.tidalLocked && !said.includes('lock') ? 'tidally locked' : null,
+        prof.geothermal > 0.3 && !said.includes('glacial') ? 'vent-warmed' : null,
+        prof.radiation > 0.45 && !said.includes('irradiat') ? 'irradiated' : null,
+        !w.bound ? 'unbound' : null,
+      ].filter(Boolean).join(' · ');
+    }
+
+    const zoneEl = this.$('world-zone');
+    if (zoneEl) {
+      const live = geo.habitableFraction, settled = geo.settledFraction;
+      zoneEl.innerHTML = w.population.count === 0
+        ? `<b>${geo.habitableZoneLabel()}.</b> ${fmt.pct(live)} of the surface could hold life. Nothing is living there.`
+        : settled <= 0
+          ? `<b>${geo.habitableZoneLabel()}.</b> ${fmt.pct(live)} of the surface is survivable, but none of it suits <em>this</em> species — they are living on borrowed conditions.`
+          : `<b>${geo.habitableZoneLabel()}.</b> ${fmt.pct(live)} of the surface is survivable; this species can occupy ${fmt.pct(settled)} of it.`;
+    }
+
+    // A stacked bar of what kind of place this world is, by area.
+    const barEl = this.$('world-biomes');
+    if (barEl) {
+      barEl.innerHTML = geo.biomeBreakdown().map(b => {
+        const c = BIOME_COLOR[b.biome] || [110, 110, 110];
+        return `<i style="flex:${b.area};background:rgb(${c[0]},${c[1]},${c[2]})" ` +
+          `title="${b.label} — ${fmt.pct(b.area)} of the surface"></i>`;
+      }).join('');
+    }
+
+    const year = w.yearInEarthYears, day = w.dayInHours;
+    const pressure = prof.surfacePressureBar(clim.tempC);
+    const airLabel = pressure < 0.01 ? 'None — airless'
+      : pressure < 0.25 ? `${pressure.toFixed(2)} bar — thin`
+        : pressure > 3 ? `${pressure.toFixed(1)} bar — crushing`
+          : `${pressure.toFixed(2)} bar`;
+    const dayLabel = prof.tidalLocked ? 'None — one face always lit'
+      : day === null ? '—'
+        : day < 48 ? `${day.toFixed(1)} h`
+          : `${(day / 24).toFixed(1)} Earth days`;
+    const extremes = geo.locked
+      ? row('Substellar → antistellar', `${geo.hottestC.toFixed(0)}°C → ${geo.coldestC.toFixed(0)}°C`,
+        'The lit face, the twilight ring and the permanent night side')
+      : row('Equator → pole', `${geo.hottestC.toFixed(0)}°C → ${geo.coldestC.toFixed(0)}°C`,
+        'Annual mean temperature at the warmest and coldest bands');
+
+    this.$('world-attrs').innerHTML =
+      `<div class="r-head">The body</div>` +
+      row('Makeup', compositionLabel(planet)) +
+      row('Mass', `${prof.planetMassEarth.toFixed(2)} M⊕`) +
+      row('Radius', `${prof.radiusEarth.toFixed(2)} R⊕`) +
+      row('Density', `${prof.density.toFixed(2)} g/cm³`) +
+      row('Surface gravity', `${prof.gravity.toFixed(2)} g`,
+        'Derived from mass and radius unless you have overridden it') +
+      row('Escape velocity', `${prof.escapeVelocityKmS.toFixed(1)} km/s`,
+        'Below about 6× the thermal speed of nitrogen, a world loses its air') +
+      row('Atmosphere', airLabel) +
+
+      `<div class="r-head">The sky</div>` +
+      row('Suns', fmt.int(w.system.suns.length)) +
+      row('Sunlight', `${clim.insolationEarths.toFixed(2)}× Earth`,
+        `${Math.round(clim.insolationWm2).toLocaleString()} W/m² at the top of the atmosphere`) +
+      row('Year', year === null ? 'None — not bound to any star'
+        : year < 1 ? `${(year * 365.25).toFixed(0)} Earth days`
+          : `${year.toFixed(1)} Earth years`,
+      'From Kepler’s third law and the current orbit') +
+      row('Day', dayLabel) +
+      row('Axial tilt', prof.tidalLocked ? '—' : `${prof.obliquityDeg.toFixed(0)}°`,
+        'What creates seasons. Past about 54° the poles get more annual sun than the equator') +
+      (prof.radiation > 0.02 ? row('Radiation', fmt.pct(prof.radiation)) : '') +
+      (prof.geothermal > 0 ? row('Internal heat', fmt.pct(prof.geothermal),
+        'A floor under temperature and food that owes nothing to any sun') : '') +
+
+      `<div class="r-head">Standing on it</div>` +
+      row('Planetary mean', fmt.temp(clim.tempC)) +
+      extremes +
+      (Math.abs(clim.habitatTempC - clim.tempC) > 1.5
+        ? row('Where life is', fmt.temp(clim.habitatTempC),
+          'The area-weighted temperature of the habitable bands, not of the globe') : '') +
+      row('Habitable surface', fmt.pct(geo.habitableFraction)) +
+      row('Occupied by them', fmt.pct(geo.settledFraction),
+        'Bands within this species’ own temperature tolerance') +
       row('Thermal swing', `±${sig.tempVolatility.toFixed(1)}°`) +
       row('Habitable time', fmt.pct(sig.stableFrac)) +
       row('Sunless time', fmt.pct(sig.darkFrac));
+  }
+
+  // Which evolutionary roads this world has taken, and which it is pushing toward.
+  updateAdaptations() {
+    const w = this.world, prof = w.profile, sig = w.signature;
+    const row = (k, v, title) => `<div class="r-row"${title ? ` title="${title}"` : ''}>` +
+      `<span class="k">${k}</span><span class="v">${v}</span></div>`;
+    this._updateWorldPanel(w, prof, sig, row);
 
     const emerged = w.adaptations.list;
     const ctx = { sunCount: w.system.suns.length };
