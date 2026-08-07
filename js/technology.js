@@ -94,10 +94,11 @@ const TELOI = [
     typeII: 'A complete swarm, because any photon that misses them is a loss.',
     typeIII: 'Most of a galaxy’s starlight caught. They optimise collection, not production.' },
   { id: 'life', name: 'Spreading life', branch: 'biotech',
-    // An ocean world has no choice — but merely living with partners is a much
-    // weaker signal than being unable to light a fire at all.
-    score: (a, prof) => (prof.hydrosphere === 'ocean' ? 1.1 : 0) + (a.has('symbiotic') ? 0.55 : 0)
-      + (a.has('programmable') ? 0.35 : 0),
+    // An ocean world has no choice. Living with partners points the same way but
+    // far more weakly — on its own it is not a reason to make biology your
+    // industry, only a reason to be comfortable with the idea.
+    score: (a, prof) => (prof.hydrosphere === 'ocean' ? 1.1 : 0) + (a.has('symbiotic') ? 0.35 : 0)
+      + (a.has('programmable') ? 0.4 : 0),
     creed: 'They never separated technology from biology, so building and growing are the same verb.',
     typeI: 'A planet-wide cultured biosphere doing the work of industry. Nothing here was ever smelted.',
     typeII: 'Their megastructures are grown, not assembled — living swarms around a living star.',
@@ -129,13 +130,25 @@ const TELOI = [
 ];
 
 /*
- * Strongest signal wins, not first match. A species is aimed by whatever
- * pressure shaped it hardest; ties go to the earlier entry, and a species that
- * nothing shaped hard ends up like us, looking around out of curiosity.
+ * Strongest signal wins, not first match — but it has to win by a margin.
+ *
+ * Exploration is the fallback and it scores a flat baseline, so without the
+ * margin any species carrying one weakly-suggestive trait would edge past it and
+ * inherit a whole civilisational purpose from a rounding error. That is not
+ * hypothetical: four unrelated dry worlds all ended up pursuing the goal of an
+ * ocean species because one adaptation cleared the baseline by 0.05.
+ *
+ * A world that shaped its people hard gets a telos. A world that did not gets
+ * ours, which is to go and look because the question was interesting.
  */
+const TELOS_MARGIN = 0.15;
+
 function telosFor(adaptations, profile) {
-  let best = TELOI[TELOI.length - 1], bestScore = -1;
+  const fallback = TELOI[TELOI.length - 1];
+  const baseline = fallback.score(adaptations, profile);
+  let best = fallback, bestScore = baseline + TELOS_MARGIN;
   for (const t of TELOI) {
+    if (t === fallback) continue;
     const s = t.score(adaptations, profile);
     if (s > bestScore) { best = t; bestScore = s; }
   }

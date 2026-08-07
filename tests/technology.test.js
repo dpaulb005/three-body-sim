@@ -86,6 +86,44 @@ run('a species’ ultimate goal follows from its biology, not from a roll', () =
   }
 });
 
+run('a weak signal does not hand a species a whole purpose', () => {
+  /*
+   * The fallback has to be genuinely hard to displace. Four unrelated dry
+   * worlds once all ended up pursuing the goal of an ocean species because one
+   * adaptation cleared the exploration baseline by 0.05, which made every calm
+   * world's civilisation identical — the precise outcome this system exists to
+   * prevent.
+   */
+  const land = { hydrosphere: 'land', radiation: 0 };
+  // Traits that merely gesture at a purpose rather than announcing one.
+  // Quantum Dormancy is deliberately not in this list: a species that can
+  // suspend itself indefinitely really is defined by outlasting things.
+  const weakOnLand = ['symbiotic', 'biostorage', 'emcomm', 'slowthought', 'predictive'];
+  for (const id of weakOnLand) {
+    const ad = { has: (x) => x === id };
+    assert.equal(T.telosFor(ad, land).id, 'exploration',
+      `"${id}" alone on a dry world should not decide what a civilisation is for`);
+  }
+  // But the same trait on the world that makes it meaningful does decide.
+  const aquatic = { has: (x) => x === 'symbiotic' };
+  assert.equal(T.telosFor(aquatic, { hydrosphere: 'ocean', radiation: 0 }).id, 'life',
+    'under an ocean, where nothing can be smelted, it is decisive');
+  // A single overwhelming trait, however, is allowed to be decisive.
+  assert.equal(T.telosFor({ has: (x) => x === 'quantum' }, land).id, 'survival',
+    'being able to suspend yourself indefinitely is a purpose all by itself');
+  // And two mutually reinforcing traits clear the bar on their own.
+  const both = { has: (x) => x === 'symbiotic' || x === 'programmable' };
+  assert.equal(T.telosFor(both, land).id, 'life',
+    'two biotech traits together are a real signal, not a rounding error');
+  // Every archetype that is supposed to have a purpose still has one.
+  for (const a of ARCHETYPES) {
+    const ad = { has: (id) => a.adaptations.includes(id) };
+    const prof = Object.assign({ hydrosphere: 'land', radiation: 0 }, a.profile);
+    assert.equal(T.telosFor(ad, prof).id, a.telos,
+      `${a.name} must still clear the margin`);
+  }
+});
+
 run('there is no fire under an ocean, and metallurgy is closed with it', () => {
   const ocean = climb(['symbiotic'], { hydrosphere: 'ocean' });
   assert.ok(!ocean.unlocked.has('fire'), 'an ocean world must never light a fire');
